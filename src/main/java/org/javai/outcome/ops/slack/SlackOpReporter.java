@@ -65,10 +65,15 @@ public class SlackOpReporter implements OpReporter {
 
 	@Override
 	public void report(Failure failure) {
+		String message = buildFailureMessage(failure);
+		sendMessage(message);
+	}
+
+	private String buildFailureMessage(Failure failure) {
 		String emoji = emojiFor(failure.notificationIntent());
 		String color = colorFor(failure.notificationIntent());
 
-		String message = String.format("""
+		return """
 			{
 				"channel": "%s",
 				"attachments": [{
@@ -107,27 +112,29 @@ public class SlackOpReporter implements OpReporter {
 					]
 				}]
 			}
-			""",
-			escapeJson(channel),
-			color,
-			emoji,
-			escapeJson(failure.code().toString()),
-			escapeJson(failure.code().toString()),
-			escapeJson(failure.operation()),
-			failure.category(),
-			failure.stability(),
-			escapeJson(failure.message()),
-			escapeJson(failure.correlationId() != null ? failure.correlationId() : "none"),
-			failure.occurredAt().atZone(java.time.ZoneId.systemDefault())
-				.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-		);
-
-		sendMessage(message);
+			""".formatted(
+				escapeJson(channel),
+				color,
+				emoji,
+				escapeJson(failure.code().toString()),
+				escapeJson(failure.code().toString()),
+				escapeJson(failure.operation()),
+				failure.category(),
+				failure.stability(),
+				escapeJson(failure.message()),
+				formatCorrelationId(failure),
+				formatTimestamp(failure)
+			);
 	}
 
 	@Override
 	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-		String message = String.format("""
+		String message = buildRetryAttemptMessage(failure, attemptNumber, policyId);
+		sendMessage(message);
+	}
+
+	private String buildRetryAttemptMessage(Failure failure, int attemptNumber, String policyId) {
+		return """
 			{
 				"channel": "%s",
 				"attachments": [{
@@ -143,20 +150,23 @@ public class SlackOpReporter implements OpReporter {
 					]
 				}]
 			}
-			""",
-			escapeJson(channel),
-			attemptNumber,
-			escapeJson(failure.operation()),
-			escapeJson(policyId),
-			escapeJson(failure.code().toString())
-		);
-
-		sendMessage(message);
+			""".formatted(
+				escapeJson(channel),
+				attemptNumber,
+				escapeJson(failure.operation()),
+				escapeJson(policyId),
+				escapeJson(failure.code().toString())
+			);
 	}
 
 	@Override
 	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
-		String message = String.format("""
+		String message = buildRetryExhaustedMessage(failure, totalAttempts, policyId);
+		sendMessage(message);
+	}
+
+	private String buildRetryExhaustedMessage(Failure failure, int totalAttempts, String policyId) {
+		return """
 			{
 				"channel": "%s",
 				"attachments": [{
@@ -182,15 +192,13 @@ public class SlackOpReporter implements OpReporter {
 					]
 				}]
 			}
-			""",
-			escapeJson(channel),
-			escapeJson(failure.operation()),
-			totalAttempts,
-			escapeJson(policyId),
-			escapeJson(failure.code().toString())
-		);
-
-		sendMessage(message);
+			""".formatted(
+				escapeJson(channel),
+				escapeJson(failure.operation()),
+				totalAttempts,
+				escapeJson(policyId),
+				escapeJson(failure.code().toString())
+			);
 	}
 
 	private void sendMessage(String jsonBody) {
@@ -251,6 +259,16 @@ public class SlackOpReporter implements OpReporter {
 			case ALERT -> "#ffcc00";     // yellow
 			case PAGE -> "#ff0000";      // red
 		};
+	}
+
+	private static String formatCorrelationId(Failure failure) {
+		return escapeJson(failure.correlationId() != null ? failure.correlationId() : "none");
+	}
+
+	private static String formatTimestamp(Failure failure) {
+		return failure.occurredAt()
+				.atZone(java.time.ZoneId.systemDefault())
+				.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 	}
 
 	private static String escapeJson(String s) {

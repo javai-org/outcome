@@ -24,66 +24,55 @@ public class DefectClassifier implements FailureClassifier {
         Cause cause = Cause.fromThrowable(t);
 
         if (t instanceof NullPointerException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "null_pointer"),
-                    "Null pointer: " + t.getMessage(),
-                    cause
-            );
+            return defect("null_pointer", "Null pointer", t, cause);
         }
 
         if (t instanceof IllegalArgumentException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "illegal_argument"),
-                    "Illegal argument: " + t.getMessage(),
-                    cause
-            );
+            return defect("illegal_argument", "Illegal argument", t, cause);
         }
 
         if (t instanceof IllegalStateException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "illegal_state"),
-                    "Illegal state: " + t.getMessage(),
-                    cause
-            );
+            return defect("illegal_state", "Illegal state", t, cause);
         }
 
         if (t instanceof UnsupportedOperationException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "unsupported_operation"),
-                    "Unsupported operation: " + t.getMessage(),
-                    cause
-            );
+            return defect("unsupported_operation", "Unsupported operation", t, cause);
         }
 
         if (t instanceof IndexOutOfBoundsException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "index_out_of_bounds"),
-                    "Index out of bounds: " + t.getMessage(),
-                    cause
-            );
+            return defect("index_out_of_bounds", "Index out of bounds", t, cause);
         }
 
         if (t instanceof ClassCastException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "class_cast"),
-                    "Class cast error: " + t.getMessage(),
-                    cause
-            );
+            return defect("class_cast", "Class cast error", t, cause);
         }
 
         if (t instanceof ArithmeticException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "arithmetic"),
-                    "Arithmetic error: " + t.getMessage(),
-                    cause
-            );
+            return defect("arithmetic", "Arithmetic error", t, cause);
         }
 
         // Fallback for any other uncaught exception
+        return classifyUnknownDefect(t, cause);
+    }
+
+    private static FailureKind defect(String code, String prefix, Throwable t, Cause cause) {
         return FailureKind.defect(
-                FailureCode.of("defect", "uncategorized"),
-                t.getMessage() != null ? t.getMessage() : t.getClass().getName(),
+                FailureCode.of("defect", code),
+                messageFor(prefix, t),
                 cause
         );
+    }
+
+    private static FailureKind classifyUnknownDefect(Throwable t, Cause cause) {
+        String message = t.getMessage() != null ? t.getMessage() : t.getClass().getName();
+        return FailureKind.defect(
+                FailureCode.of("defect", "uncategorized"),
+                message,
+                cause
+        );
+    }
+
+    private static String messageFor(String prefix, Throwable t) {
+        return prefix + ": " + t.getMessage();
     }
 }

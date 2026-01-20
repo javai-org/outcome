@@ -39,7 +39,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof SocketTimeoutException) {
             return FailureKind.transientFailure(
                     FailureCode.of("network", "timeout"),
-                    "Socket timeout: " + t.getMessage(),
+                    messageFor("Socket timeout", t),
                     cause
             ).withRetryHint(RetryHint.withDelay(Duration.ofMillis(500)));
         }
@@ -47,7 +47,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof HttpTimeoutException) {
             return FailureKind.transientFailure(
                     FailureCode.of("network", "http_timeout"),
-                    "HTTP timeout: " + t.getMessage(),
+                    messageFor("HTTP timeout", t),
                     cause
             ).withRetryHint(RetryHint.withDelay(Duration.ofMillis(500)));
         }
@@ -55,7 +55,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof ConnectException) {
             return FailureKind.transientFailure(
                     FailureCode.of("network", "connection_refused"),
-                    "Connection refused: " + t.getMessage(),
+                    messageFor("Connection refused", t),
                     cause
             ).withRetryHint(RetryHint.withDelay(Duration.ofSeconds(1)));
         }
@@ -63,7 +63,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof UnknownHostException) {
             return FailureKind.permanentFailure(
                     FailureCode.of("network", "unknown_host"),
-                    "Unknown host: " + t.getMessage(),
+                    messageFor("Unknown host", t),
                     cause
             );
         }
@@ -71,7 +71,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof TimeoutException) {
             return FailureKind.transientFailure(
                     FailureCode.of("operation", "timeout"),
-                    "Operation timeout: " + t.getMessage(),
+                    messageFor("Operation timeout", t),
                     cause
             );
         }
@@ -80,7 +80,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof FileNotFoundException || t instanceof NoSuchFileException) {
             return FailureKind.permanentFailure(
                     FailureCode.of("io", "file_not_found"),
-                    "File not found: " + t.getMessage(),
+                    messageFor("File not found", t),
                     cause
             );
         }
@@ -88,7 +88,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof AccessDeniedException) {
             return FailureKind.permanentFailure(
                     FailureCode.of("io", "access_denied"),
-                    "Access denied: " + t.getMessage(),
+                    messageFor("Access denied", t),
                     cause
             );
         }
@@ -97,7 +97,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof IOException) {
             return FailureKind.transientFailure(
                     FailureCode.of("io", "io_error"),
-                    "IO error: " + t.getMessage(),
+                    messageFor("IO error", t),
                     cause
             ).withRetryHint(RetryHint.maybe("io_unknown"));
         }
@@ -106,39 +106,52 @@ public class BoundaryFailureClassifier implements FailureClassifier {
         if (t instanceof SQLTransientException) {
             return FailureKind.transientFailure(
                     FailureCode.of("sql", "transient"),
-                    "SQL transient error: " + t.getMessage(),
+                    messageFor("SQL transient error", t),
                     cause
             );
         }
 
         if (t instanceof SQLException sqlEx) {
-            String sqlState = sqlEx.getSQLState();
-            if (sqlState != null && sqlState.startsWith("08")) {
-                // Connection exceptions
-                return FailureKind.transientFailure(
-                        FailureCode.of("sql", "connection"),
-                        "SQL connection error: " + t.getMessage(),
-                        cause
-                );
-            }
-            return new FailureKind(
-                    FailureCode.of("sql", "error"),
-                    "SQL error: " + t.getMessage(),
-                    FailureCategory.RECOVERABLE,
-                    FailureStability.UNKNOWN,
-                    RetryHint.maybe("sql_unknown"),
-                    cause
-            );
+            return classifySqlException(sqlEx, cause);
         }
 
         // Fallback for unknown checked exceptions
+        return classifyUnknownException(t, cause);
+    }
+
+    private static FailureKind classifySqlException(SQLException sqlEx, Cause cause) {
+        String sqlState = sqlEx.getSQLState();
+        if (sqlState != null && sqlState.startsWith("08")) {
+            // Connection exceptions
+            return FailureKind.transientFailure(
+                    FailureCode.of("sql", "connection"),
+                    messageFor("SQL connection error", sqlEx),
+                    cause
+            );
+        }
+        return new FailureKind(
+                FailureCode.of("sql", "error"),
+                messageFor("SQL error", sqlEx),
+                FailureCategory.RECOVERABLE,
+                FailureStability.UNKNOWN,
+                RetryHint.maybe("sql_unknown"),
+                cause
+        );
+    }
+
+    private static FailureKind classifyUnknownException(Throwable t, Cause cause) {
+        String message = t.getMessage() != null ? t.getMessage() : t.getClass().getName();
         return new FailureKind(
                 FailureCode.of("unknown", t.getClass().getSimpleName()),
-                t.getMessage() != null ? t.getMessage() : t.getClass().getName(),
+                message,
                 FailureCategory.RECOVERABLE,
                 FailureStability.UNKNOWN,
                 RetryHint.maybe("unknown_exception"),
                 cause
         );
+    }
+
+    private static String messageFor(String prefix, Throwable t) {
+        return prefix + ": " + t.getMessage();
     }
 }

@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
+import org.javai.outcome.Cause;
 import org.javai.outcome.Failure;
 import org.javai.outcome.NotificationIntent;
 import org.javai.outcome.ops.OpReporter;
@@ -92,35 +93,38 @@ public class Log4jOpReporter implements OpReporter {
 	}
 
 	private String formatFailureMessage(Failure failure) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("Failure in operation [").append(failure.operation()).append("]: ");
-		sb.append(failure.message());
-		sb.append(" | code=").append(failure.code());
-		sb.append(", category=").append(failure.category());
-		sb.append(", stability=").append(failure.stability());
-		sb.append(", notification=").append(failure.notificationIntent());
+		return """
+			Failure in operation [%s]: %s \
+			| code=%s, category=%s, stability=%s, notification=%s%s%s%s\
+			""".formatted(
+				failure.operation(),
+				failure.message(),
+				failure.code(),
+				failure.category(),
+				failure.stability(),
+				failure.notificationIntent(),
+				formatCorrelationId(failure.correlationId()),
+				formatTags(failure.tags()),
+				formatCause(failure.cause())
+			).trim();
+	}
 
-		if (failure.correlationId() != null) {
-			sb.append(", correlationId=").append(failure.correlationId());
+	private static String formatCorrelationId(String correlationId) {
+		return correlationId != null ? ", correlationId=" + correlationId : "";
+	}
+
+	private static String formatTags(Map<String, String> tags) {
+		if (tags == null || tags.isEmpty()) {
+			return "";
 		}
+		return ", tags={" + tags.entrySet().stream()
+				.map(e -> e.getKey() + "=" + e.getValue())
+				.reduce((a, b) -> a + ", " + b)
+				.orElse("") + "}";
+	}
 
-		Map<String, String> tags = failure.tags();
-		if (tags != null && !tags.isEmpty()) {
-			sb.append(", tags={");
-			boolean first = true;
-			for (Map.Entry<String, String> entry : tags.entrySet()) {
-				if (!first) sb.append(", ");
-				sb.append(entry.getKey()).append("=").append(entry.getValue());
-				first = false;
-			}
-			sb.append("}");
-		}
-
-		if (failure.cause() != null) {
-			sb.append(", cause=").append(failure.cause().type());
-		}
-
-		return sb.toString();
+	private static String formatCause(Cause cause) {
+		return cause != null ? ", cause=" + cause.type() : "";
 	}
 
 	private static Level levelFor(NotificationIntent intent) {
