@@ -201,14 +201,14 @@ org.javai.outcome
 │
 ├── boundary/
 │   ├── Boundary, ThrowingSupplier
-│   ├── FailureClassifier, DefaultFailureClassifier
+│   ├── FailureClassifier, BoundaryFailureClassifier
 │
 ├── retry/
 │   ├── Retrier, RetryPolicy
 │   ├── RetryDecision, RetryContext
 │
 └── ops/
-    ├── OpReporter
+    ├── OpReporter, DefectClassifier
     └── OperationalExceptionHandler
 ```
 
@@ -216,14 +216,13 @@ org.javai.outcome
 
 ```java
 // 1. Set up the infrastructure
-FailureClassifier classifier = new DefaultFailureClassifier();
 OpReporter reporter = failure -> System.out.println("FAILURE: " + failure);
 
-Boundary boundary = new Boundary(classifier, reporter);
+Boundary boundary = new Boundary(new BoundaryFailureClassifier(), reporter);
 Retrier retrier = new Retrier(reporter);
 
 // 2. Install the uncaught exception handler
-new OperationalExceptionHandler(classifier, reporter).installAsDefault();
+new OperationalExceptionHandler(new DefectClassifier(), reporter).installAsDefault();
 
 // 3. Use Outcome in your code
 Outcome<User> result = boundary.call("UserService.findById", () ->

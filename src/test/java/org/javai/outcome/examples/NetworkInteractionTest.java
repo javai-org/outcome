@@ -2,7 +2,7 @@ package org.javai.outcome.examples;
 
 import org.javai.outcome.*;
 import org.javai.outcome.boundary.Boundary;
-import org.javai.outcome.boundary.DefaultFailureClassifier;
+import org.javai.outcome.boundary.BoundaryFailureClassifier;
 import org.javai.outcome.ops.OpReporter;
 import org.javai.outcome.retry.Retrier;
 import org.javai.outcome.retry.RetryPolicy;
@@ -47,7 +47,7 @@ public class NetworkInteractionTest {
             }
         };
 
-        boundary = new Boundary(new DefaultFailureClassifier(), reporter);
+        boundary = new Boundary(new BoundaryFailureClassifier(), reporter);
         retrier = new Retrier(reporter);
     }
 

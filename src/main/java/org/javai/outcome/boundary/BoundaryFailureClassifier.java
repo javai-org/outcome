@@ -16,10 +16,20 @@ import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Default classifier for common JDK exceptions.
- * Provides sensible defaults for IO, network, and SQL exceptions.
+ * Classifies checked exceptions into recoverable failures for use with {@link Boundary}.
+ *
+ * <p>This classifier handles common JDK checked exceptions (IO, network, SQL) and
+ * translates them into appropriate {@link FailureKind} values with sensible defaults
+ * for stability and retry hints.
+ *
+ * <p>All failures produced by this classifier are {@link FailureCategory#RECOVERABLE}
+ * since checked exceptions represent expected operational conditions that the
+ * application can handle via retry, fallback, or graceful degradation.
+ *
+ * <p>This classifier should not be used for RuntimeExceptions. Use {@link
+ * org.javai.outcome.ops.DefectClassifier} for uncaught exception handling.
  */
-public class DefaultFailureClassifier implements FailureClassifier {
+public class BoundaryFailureClassifier implements FailureClassifier {
 
     @Override
     public FailureKind classify(String operation, Throwable t) {
@@ -102,7 +112,6 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof SQLException sqlEx) {
-            // Classify by SQL state if available
             String sqlState = sqlEx.getSQLState();
             if (sqlState != null && sqlState.startsWith("08")) {
                 // Connection exceptions
@@ -122,32 +131,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
             );
         }
 
-        // Programming errors: not retryable
-        if (t instanceof IllegalArgumentException || t instanceof IllegalStateException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "invalid_argument"),
-                    "Invalid argument: " + t.getMessage(),
-                    cause
-            );
-        }
-
-        if (t instanceof NullPointerException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "null_pointer"),
-                    "Null pointer: " + t.getMessage(),
-                    cause
-            );
-        }
-
-        if (t instanceof UnsupportedOperationException) {
-            return FailureKind.defect(
-                    FailureCode.of("defect", "unsupported_operation"),
-                    "Unsupported operation: " + t.getMessage(),
-                    cause
-            );
-        }
-
-        // Fallback: unknown, assume operational with unknown stability
+        // Fallback for unknown checked exceptions
         return new FailureKind(
                 FailureCode.of("unknown", t.getClass().getSimpleName()),
                 t.getMessage() != null ? t.getMessage() : t.getClass().getName(),

@@ -1,7 +1,6 @@
 package org.javai.outcome.ops;
 
 import org.javai.outcome.*;
-import org.javai.outcome.boundary.DefaultFailureClassifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +22,7 @@ class OperationalExceptionHandlerTest {
     void setUp() {
         reportedFailures = new ArrayList<>();
         handler = new OperationalExceptionHandler(
-                new DefaultFailureClassifier(),
+                new DefectClassifier(),
                 reportedFailures::add
         );
     }
@@ -63,19 +62,19 @@ class OperationalExceptionHandlerTest {
     }
 
     @Test
-    void uncaughtException_recoverable_alertsOperator() {
-        // RuntimeException with unknown classification → RECOVERABLE + UNKNOWN stability
+    void uncaughtException_unknownRuntime_isDefect() {
+        // Unknown RuntimeException → DEFECT (it's an uncaught bug)
         handler.uncaughtException(Thread.currentThread(), new RuntimeException("unknown"));
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.ALERT);
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
     @Test
     void uncaughtException_withCorrelationId() {
         OperationalExceptionHandler handlerWithCorrelation = new OperationalExceptionHandler(
-                new DefaultFailureClassifier(),
+                new DefectClassifier(),
                 reportedFailures::add,
                 () -> "correlation-xyz"
         );
@@ -101,7 +100,7 @@ class OperationalExceptionHandlerTest {
 
         assertThat(reportedFailures).hasSize(1);
         assertThat(reportedFailures.getFirst().code())
-                .isEqualTo(FailureCode.of("defect", "invalid_argument"));
+                .isEqualTo(FailureCode.of("defect", "illegal_state"));
     }
 
     @Test

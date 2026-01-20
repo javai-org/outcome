@@ -22,7 +22,7 @@ class BoundaryTest {
     void setUp() {
         reportedFailures = new ArrayList<>();
         OpReporter reporter = reportedFailures::add;
-        boundary = new Boundary(new DefaultFailureClassifier(), reporter);
+        boundary = new Boundary(new BoundaryFailureClassifier(), reporter);
     }
 
     @Test
@@ -120,7 +120,7 @@ class BoundaryTest {
     @Test
     void call_withCorrelationIdSupplier_includesCorrelationId() {
         Boundary boundaryWithCorrelation = new Boundary(
-                new DefaultFailureClassifier(),
+                new BoundaryFailureClassifier(),
                 reportedFailures::add,
                 () -> "trace-123"
         );

@@ -14,17 +14,17 @@ import java.sql.SQLTransientConnectionException;
 
 import static org.assertj.core.api.Assertions.*;
 
-class DefaultFailureClassifierTest {
+class BoundaryFailureClassifierTest {
 
-    private DefaultFailureClassifier classifier;
+    private BoundaryFailureClassifier classifier;
 
     @BeforeEach
     void setUp() {
-        classifier = new DefaultFailureClassifier();
+        classifier = new BoundaryFailureClassifier();
     }
 
     @Test
-    void socketTimeout_isTransientOperational() {
+    void socketTimeout_isTransientRecoverable() {
         FailureKind kind = classifier.classify("HttpCall", new SocketTimeoutException("timed out"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "timeout"));
@@ -35,7 +35,7 @@ class DefaultFailureClassifierTest {
     }
 
     @Test
-    void connectException_isTransientOperational() {
+    void connectException_isTransientRecoverable() {
         FailureKind kind = classifier.classify("Connect", new ConnectException("refused"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "connection_refused"));
@@ -45,7 +45,7 @@ class DefaultFailureClassifierTest {
     }
 
     @Test
-    void unknownHost_isPermanentOperational() {
+    void unknownHost_isPermanentRecoverable() {
         FailureKind kind = classifier.classify("Resolve", new UnknownHostException("bad.host"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "unknown_host"));
@@ -55,7 +55,7 @@ class DefaultFailureClassifierTest {
     }
 
     @Test
-    void fileNotFound_isPermanentOperational() {
+    void fileNotFound_isPermanentRecoverable() {
         FailureKind kind = classifier.classify("ReadFile", new FileNotFoundException("/missing/file"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("io", "file_not_found"));
@@ -104,29 +104,9 @@ class DefaultFailureClassifierTest {
     }
 
     @Test
-    void illegalArgument_isDefect() {
-        FailureKind kind = classifier.classify("Validate",
-                new IllegalArgumentException("bad input"));
-
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "invalid_argument"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
-    }
-
-    @Test
-    void nullPointer_isDefect() {
-        FailureKind kind = classifier.classify("Process", new NullPointerException("oops"));
-
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "null_pointer"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-    }
-
-    @Test
-    void unknownException_hasUnknownStability() {
-        FailureKind kind = classifier.classify("Unknown",
-                new RuntimeException("mystery error"));
+    void unknownCheckedException_isRecoverable() {
+        Exception customChecked = new Exception("unknown checked");
+        FailureKind kind = classifier.classify("Unknown", customChecked);
 
         assertThat(kind.code().namespace()).isEqualTo("unknown");
         assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
