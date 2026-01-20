@@ -101,11 +101,11 @@ public final class Boundary {
 
     private NotificationIntent determineNotificationIntent(FailureKind kind) {
         return switch (kind.category()) {
-            case OPERATIONAL -> kind.stability() == FailureStability.TRANSIENT
+            case RECOVERABLE -> kind.stability() == FailureStability.TRANSIENT
                     ? NotificationIntent.OBSERVE
                     : NotificationIntent.ALERT;
-            case DEFECT_OR_MISCONFIGURATION -> NotificationIntent.ALERT;
-            case FATAL_ENVIRONMENT -> NotificationIntent.PAGE;
+            case DEFECT -> NotificationIntent.ALERT;
+            case TERMINAL -> NotificationIntent.PAGE;
         };
     }
 }

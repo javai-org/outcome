@@ -108,7 +108,7 @@ public record Failure(
 Enumerations:
 
 ```java
-public enum FailureCategory { OPERATIONAL, DEFECT_OR_MISCONFIGURATION, FATAL_ENVIRONMENT }
+public enum FailureCategory { RECOVERABLE, DEFECT, TERMINAL }
 
 public enum FailureStability { TRANSIENT, PERMANENT, UNKNOWN }
 

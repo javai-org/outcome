@@ -10,7 +10,7 @@ Java's exception model conflates three fundamentally different things:
 
 2. **Defects** — null pointers, invalid arguments, misconfiguration. These are *bugs*. No retry will help. A human must fix the code or the configuration.
 
-3. **Fatal environment failures** — `OutOfMemoryError`, `StackOverflowError`, `NoClassDefFoundError`. The JVM itself is compromised. No application-level handling is possible or advisable.
+3. **Terminal environment failures** — `OutOfMemoryError`, `StackOverflowError`, `NoClassDefFoundError`. The JVM itself is compromised. No application-level handling is possible or advisable.
 
 By treating the first two as "exceptions," Java's type system forces a syntactic ritual (`try`/`catch`) that *looks* like handling but usually isn't. Developers comply with the compiler, not with operational reality:
 
@@ -44,7 +44,7 @@ return switch (result) {
 
 **Defects remain exceptions.** A `NullPointerException` should crash the operation and page an operator. No `catch` block will fix a bug.
 
-**Fatal errors are not handled.** An `OutOfMemoryError` means the JVM is compromised. The framework does not catch `Error`—let the process die and let your infrastructure (Kubernetes, systemd, supervisors) restart it.
+**Terminal errors are not handled.** An `OutOfMemoryError` means the JVM is compromised. The framework does not catch `Error`—let the process die and let your infrastructure (Kubernetes, systemd, supervisors) restart it.
 
 This isn't a new idea—it's how Rust, Go, and functional languages handle errors. Outcome brings this proven idiom to Java with full type safety and pattern matching support.
 
@@ -83,7 +83,7 @@ Outcome<Order> order = fetchUser(userId)
 A structured failure with everything needed for reporting and policy decisions:
 
 - **FailureCode** — namespaced identifier (`network:timeout`, `sql:connection`)
-- **FailureCategory** — `OPERATIONAL`, `DEFECT_OR_MISCONFIGURATION`, or `FATAL_ENVIRONMENT`
+- **FailureCategory** — `RECOVERABLE`, `DEFECT`, or `TERMINAL`
 - **FailureStability** — `TRANSIENT`, `PERMANENT`, or `UNKNOWN`
 - **RetryHint** — advisory guidance for retry policies
 - **NotificationIntent** — `NONE`, `OBSERVE`, `ALERT`, or `PAGE`
@@ -179,8 +179,8 @@ Policies respect the failure's `RetryHint` and report all attempts through `OpRe
 ┌─────────────────────────────────────────────────────────────────┐
 │  Boundary                                                       │
 │  - Checked exception → classify → report → Outcome.Fail         │
-│  - RuntimeException → rethrow (defect, not operational)         │
-│  - Error → rethrow (fatal, not handleable)                      │
+│  - RuntimeException → rethrow (defect, not recoverable)         │
+│  - Error → rethrow (terminal, not handleable)                      │
 └─────────────────────────────────────────────────────────────────┘
                               ↑
                      third-party API throws
@@ -246,7 +246,7 @@ This framework embodies a simple principle: **different failure modes deserve di
 
 | Category        | Examples                                       | Handling                             | Recovery                            |
 |-----------------|------------------------------------------------|--------------------------------------|-------------------------------------|
-| **Operational** | Timeouts, rate limits, unavailable services    | `Outcome.Fail` — normal control flow | Retry, fallback, degrade gracefully |
+| **Recoverable** | Timeouts, rate limits, unavailable services    | `Outcome.Fail` — normal control flow | Retry, fallback, degrade gracefully |
 | **Defect**      | NullPointerException, IllegalArgumentException | Propagate, page operator             | Human fixes code/config             |
 | **Fatal**       | OutOfMemoryError, StackOverflowError           | Don't catch                          | Infrastructure restarts process     |
 
@@ -258,6 +258,6 @@ By representing expected failures as data, we gain:
 - **Consistency** — one failure model across the codebase
 - **Observability** — structured reporting, not scattered logs
 
-Defects (unchecked exceptions) propagate to the top of the stack where `OperationalExceptionHandler` pages an operator. Fatal errors (`Error` subclasses) are never caught—the JVM is compromised, and the only sensible response is to let the process die.
+Defects (unchecked exceptions) propagate to the top of the stack where `OperationalExceptionHandler` pages an operator. Terminal errors (`Error` subclasses) are never caught—the JVM is compromised, and the only sensible response is to let the process die.
 
-**Operational failures flow as values. Defects crash and page. Fatal errors terminate.**
+**Recoverable failures flow as values. Defects crash and page. Terminal errors terminate.**

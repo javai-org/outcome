@@ -73,9 +73,9 @@ public final class OperationalExceptionHandler implements UncaughtExceptionHandl
     private NotificationIntent determineNotificationIntent(FailureKind kind) {
         // Uncaught exceptions are serious—they killed a thread
         return switch (kind.category()) {
-            case OPERATIONAL -> NotificationIntent.ALERT;
-            case DEFECT_OR_MISCONFIGURATION -> NotificationIntent.PAGE;
-            case FATAL_ENVIRONMENT -> NotificationIntent.PAGE;
+            case RECOVERABLE -> NotificationIntent.ALERT;
+            case DEFECT -> NotificationIntent.PAGE;
+            case TERMINAL -> NotificationIntent.PAGE;
         };
     }
 

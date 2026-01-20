@@ -28,7 +28,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("HttpCall", new SocketTimeoutException("timed out"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "timeout"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
         assertThat(kind.retryHint().minDelay()).isNotNull();
@@ -39,7 +39,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("Connect", new ConnectException("refused"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "connection_refused"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
     }
@@ -49,7 +49,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("Resolve", new UnknownHostException("bad.host"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("network", "unknown_host"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
     }
@@ -59,7 +59,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("ReadFile", new FileNotFoundException("/missing/file"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("io", "file_not_found"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
     }
@@ -69,7 +69,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("IO", new IOException("something"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("io", "io_error"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.MAYBE);
     }
@@ -80,7 +80,7 @@ class DefaultFailureClassifierTest {
                 new SQLTransientConnectionException("connection lost"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("sql", "transient"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
     }
@@ -109,7 +109,7 @@ class DefaultFailureClassifierTest {
                 new IllegalArgumentException("bad input"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "invalid_argument"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT_OR_MISCONFIGURATION);
+        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
         assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
     }
@@ -119,7 +119,7 @@ class DefaultFailureClassifierTest {
         FailureKind kind = classifier.classify("Process", new NullPointerException("oops"));
 
         assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "null_pointer"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT_OR_MISCONFIGURATION);
+        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
         assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
     }
 
@@ -129,7 +129,7 @@ class DefaultFailureClassifierTest {
                 new RuntimeException("mystery error"));
 
         assertThat(kind.code().namespace()).isEqualTo("unknown");
-        assertThat(kind.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(kind.stability()).isEqualTo(FailureStability.UNKNOWN);
         assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.MAYBE);
     }

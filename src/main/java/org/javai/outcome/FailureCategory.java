@@ -1,24 +1,25 @@
 package org.javai.outcome;
 
 /**
- * Classifies failures by their fundamental nature.
+ * Classifies failures by their fundamental nature and recoverability.
  */
 public enum FailureCategory {
     /**
-     * Expected operational failure (network issues, service unavailable, rate limits).
-     * These are normal in production and should be handled gracefully.
+     * Recoverable failure (network issues, service unavailable, rate limits).
+     * These are expected in production and the application handles them via
+     * retry, fallback, or graceful degradation.
      */
-    OPERATIONAL,
+    RECOVERABLE,
 
     /**
      * Programming error or misconfiguration. No amount of retries will help.
-     * Requires developer or operator intervention.
+     * Requires developer or operator intervention to fix the code or configuration.
      */
-    DEFECT_OR_MISCONFIGURATION,
+    DEFECT,
 
     /**
-     * Fatal environment issue (disk full, out of memory, certificate expired).
-     * The application cannot function until the environment is fixed.
+     * Terminal environment issue (out of memory, stack overflow).
+     * The JVM is compromised. Let the process die and let infrastructure restart it.
      */
-    FATAL_ENVIRONMENT
+    TERMINAL
 }

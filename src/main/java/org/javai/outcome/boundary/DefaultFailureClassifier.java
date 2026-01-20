@@ -27,7 +27,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
 
         // Network: transient, retryable
         if (t instanceof SocketTimeoutException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("network", "timeout"),
                     "Socket timeout: " + t.getMessage(),
                     cause
@@ -35,7 +35,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof HttpTimeoutException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("network", "http_timeout"),
                     "HTTP timeout: " + t.getMessage(),
                     cause
@@ -43,7 +43,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof ConnectException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("network", "connection_refused"),
                     "Connection refused: " + t.getMessage(),
                     cause
@@ -51,7 +51,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof UnknownHostException) {
-            return FailureKind.permanentOp(
+            return FailureKind.permanentFailure(
                     FailureCode.of("network", "unknown_host"),
                     "Unknown host: " + t.getMessage(),
                     cause
@@ -59,7 +59,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof TimeoutException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("operation", "timeout"),
                     "Operation timeout: " + t.getMessage(),
                     cause
@@ -68,7 +68,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
 
         // File system: usually permanent
         if (t instanceof FileNotFoundException || t instanceof NoSuchFileException) {
-            return FailureKind.permanentOp(
+            return FailureKind.permanentFailure(
                     FailureCode.of("io", "file_not_found"),
                     "File not found: " + t.getMessage(),
                     cause
@@ -76,7 +76,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         }
 
         if (t instanceof AccessDeniedException) {
-            return FailureKind.permanentOp(
+            return FailureKind.permanentFailure(
                     FailureCode.of("io", "access_denied"),
                     "Access denied: " + t.getMessage(),
                     cause
@@ -85,7 +85,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
 
         // General IO: assume transient unless we know otherwise
         if (t instanceof IOException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("io", "io_error"),
                     "IO error: " + t.getMessage(),
                     cause
@@ -94,7 +94,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
 
         // SQL: check for transient subtype
         if (t instanceof SQLTransientException) {
-            return FailureKind.transientOp(
+            return FailureKind.transientFailure(
                     FailureCode.of("sql", "transient"),
                     "SQL transient error: " + t.getMessage(),
                     cause
@@ -106,7 +106,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
             String sqlState = sqlEx.getSQLState();
             if (sqlState != null && sqlState.startsWith("08")) {
                 // Connection exceptions
-                return FailureKind.transientOp(
+                return FailureKind.transientFailure(
                         FailureCode.of("sql", "connection"),
                         "SQL connection error: " + t.getMessage(),
                         cause
@@ -115,7 +115,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
             return new FailureKind(
                     FailureCode.of("sql", "error"),
                     "SQL error: " + t.getMessage(),
-                    FailureCategory.OPERATIONAL,
+                    FailureCategory.RECOVERABLE,
                     FailureStability.UNKNOWN,
                     RetryHint.maybe("sql_unknown"),
                     cause
@@ -151,7 +151,7 @@ public class DefaultFailureClassifier implements FailureClassifier {
         return new FailureKind(
                 FailureCode.of("unknown", t.getClass().getSimpleName()),
                 t.getMessage() != null ? t.getMessage() : t.getClass().getName(),
-                FailureCategory.OPERATIONAL,
+                FailureCategory.RECOVERABLE,
                 FailureStability.UNKNOWN,
                 RetryHint.maybe("unknown_exception"),
                 cause

@@ -31,13 +31,13 @@ public record FailureKind(
     }
 
     /**
-     * Creates a transient operational failure that should be retried.
+     * Creates a transient recoverable failure that should be retried.
      */
-    public static FailureKind transientOp(FailureCode code, String message, Cause cause) {
+    public static FailureKind transientFailure(FailureCode code, String message, Cause cause) {
         return new FailureKind(
                 code,
                 message,
-                FailureCategory.OPERATIONAL,
+                FailureCategory.RECOVERABLE,
                 FailureStability.TRANSIENT,
                 RetryHint.yes(),
                 cause
@@ -45,13 +45,13 @@ public record FailureKind(
     }
 
     /**
-     * Creates a permanent operational failure that should not be retried.
+     * Creates a permanent recoverable failure that should not be retried.
      */
-    public static FailureKind permanentOp(FailureCode code, String message, Cause cause) {
+    public static FailureKind permanentFailure(FailureCode code, String message, Cause cause) {
         return new FailureKind(
                 code,
                 message,
-                FailureCategory.OPERATIONAL,
+                FailureCategory.RECOVERABLE,
                 FailureStability.PERMANENT,
                 RetryHint.none(),
                 cause
@@ -59,13 +59,13 @@ public record FailureKind(
     }
 
     /**
-     * Creates a defect/misconfiguration failure.
+     * Creates a defect failure (bug or misconfiguration).
      */
     public static FailureKind defect(FailureCode code, String message, Cause cause) {
         return new FailureKind(
                 code,
                 message,
-                FailureCategory.DEFECT_OR_MISCONFIGURATION,
+                FailureCategory.DEFECT,
                 FailureStability.PERMANENT,
                 RetryHint.none(),
                 cause

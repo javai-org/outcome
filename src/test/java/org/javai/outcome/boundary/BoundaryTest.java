@@ -87,7 +87,7 @@ class BoundaryTest {
         Failure failure = ((Outcome.Fail<String>) result).failure();
 
         assertThat(failure.code()).isEqualTo(FailureCode.of("network", "timeout"));
-        assertThat(failure.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(failure.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(failure.operation()).isEqualTo("HttpCall");
     }
@@ -150,7 +150,7 @@ class BoundaryTest {
         });
 
         Failure failure = ((Outcome.Fail<String>) result).failure();
-        assertThat(failure.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(failure.stability()).isEqualTo(FailureStability.TRANSIENT);
         assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.OBSERVE);
     }

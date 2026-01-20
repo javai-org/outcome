@@ -38,7 +38,7 @@ class OperationalExceptionHandlerTest {
         assertThat(reportedFailures).hasSize(1);
         Failure failure = reportedFailures.getFirst();
         assertThat(failure.code()).isEqualTo(FailureCode.of("defect", "null_pointer"));
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT_OR_MISCONFIGURATION);
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
     }
 
     @Test
@@ -58,17 +58,17 @@ class OperationalExceptionHandlerTest {
         handler.uncaughtException(Thread.currentThread(), new NullPointerException());
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT_OR_MISCONFIGURATION);
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
         assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
     @Test
-    void uncaughtException_operational_alertsOperator() {
-        // RuntimeException with unknown classification → OPERATIONAL + UNKNOWN stability
+    void uncaughtException_recoverable_alertsOperator() {
+        // RuntimeException with unknown classification → RECOVERABLE + UNKNOWN stability
         handler.uncaughtException(Thread.currentThread(), new RuntimeException("unknown"));
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.ALERT);
     }
 

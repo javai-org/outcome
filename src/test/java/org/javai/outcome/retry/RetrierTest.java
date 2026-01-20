@@ -194,7 +194,7 @@ class RetrierTest {
     }
 
     private Failure createTransientFailure(String message) {
-        FailureKind kind = FailureKind.transientOp(
+        FailureKind kind = FailureKind.transientFailure(
                 FailureCode.of("test", "transient"),
                 message,
                 null
@@ -206,7 +206,7 @@ class RetrierTest {
         FailureKind kind = new FailureKind(
                 FailureCode.of("test", "transient"),
                 message,
-                FailureCategory.OPERATIONAL,
+                FailureCategory.RECOVERABLE,
                 FailureStability.TRANSIENT,
                 RetryHint.withDelay(minDelay),
                 null
@@ -215,7 +215,7 @@ class RetrierTest {
     }
 
     private Failure createPermanentFailure(String message) {
-        FailureKind kind = FailureKind.permanentOp(
+        FailureKind kind = FailureKind.permanentFailure(
                 FailureCode.of("test", "permanent"),
                 message,
                 null

@@ -179,7 +179,7 @@ class OutcomeTest {
     }
 
     private Failure createTestFailure(String message) {
-        FailureKind kind = FailureKind.transientOp(
+        FailureKind kind = FailureKind.transientFailure(
                 FailureCode.of("test", "error"),
                 message,
                 null

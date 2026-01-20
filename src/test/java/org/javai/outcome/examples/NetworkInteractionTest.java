@@ -86,7 +86,7 @@ public class NetworkInteractionTest {
         // Extract failure details
         Failure failure = ((Outcome.Fail<String>) outcome).failure();
         assertThat(failure.code()).isEqualTo(FailureCode.of("network", "http_timeout"));
-        assertThat(failure.category()).isEqualTo(FailureCategory.OPERATIONAL);
+        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
         assertThat(failure.stability()).isEqualTo(FailureStability.TRANSIENT);
 
         // Failure was reported
