@@ -1,0 +1,155 @@
+package org.javai.outcome;
+
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/**
+ * Represents the outcome of an operation that may fail.
+ * Either {@link Ok} containing a successful value, or {@link Fail} containing a {@link Failure}.
+ *
+ * @param <T> The type of the successful value
+ */
+public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
+
+    /**
+     * A successful outcome containing a value.
+     */
+    record Ok<T>(T value) implements Outcome<T> {
+        @Override
+        public boolean isOk() {
+            return true;
+        }
+
+        @Override
+        public boolean isFail() {
+            return false;
+        }
+
+        @Override
+        public T getOrThrow() {
+            return value;
+        }
+
+        @Override
+        public T getOrElse(T defaultValue) {
+            return value;
+        }
+
+        @Override
+        public T getOrElseGet(Supplier<? extends T> supplier) {
+            return value;
+        }
+
+        @Override
+        public <U> Outcome<U> map(Function<? super T, ? extends U> mapper) {
+            Objects.requireNonNull(mapper);
+            return new Ok<>(mapper.apply(value));
+        }
+
+        @Override
+        public <U> Outcome<U> flatMap(Function<? super T, ? extends Outcome<U>> mapper) {
+            Objects.requireNonNull(mapper);
+            return mapper.apply(value);
+        }
+
+        @Override
+        public Outcome<T> recover(Function<? super Failure, ? extends T> recovery) {
+            return this;
+        }
+
+        @Override
+        public Outcome<T> recoverWith(Function<? super Failure, ? extends Outcome<T>> recovery) {
+            return this;
+        }
+    }
+
+    /**
+     * A failed outcome containing failure details.
+     */
+    record Fail<T>(Failure failure) implements Outcome<T> {
+        public Fail {
+            Objects.requireNonNull(failure, "failure must not be null");
+        }
+
+        @Override
+        public boolean isOk() {
+            return false;
+        }
+
+        @Override
+        public boolean isFail() {
+            return true;
+        }
+
+        @Override
+        public T getOrThrow() {
+            throw new OutcomeFailedException(failure);
+        }
+
+        @Override
+        public T getOrElse(T defaultValue) {
+            return defaultValue;
+        }
+
+        @Override
+        public T getOrElseGet(Supplier<? extends T> supplier) {
+            Objects.requireNonNull(supplier);
+            return supplier.get();
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <U> Outcome<U> map(Function<? super T, ? extends U> mapper) {
+            return (Outcome<U>) this;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <U> Outcome<U> flatMap(Function<? super T, ? extends Outcome<U>> mapper) {
+            return (Outcome<U>) this;
+        }
+
+        @Override
+        public Outcome<T> recover(Function<? super Failure, ? extends T> recovery) {
+            Objects.requireNonNull(recovery);
+            return new Ok<>(recovery.apply(failure));
+        }
+
+        @Override
+        public Outcome<T> recoverWith(Function<? super Failure, ? extends Outcome<T>> recovery) {
+            Objects.requireNonNull(recovery);
+            return recovery.apply(failure);
+        }
+    }
+
+    // Query methods
+    boolean isOk();
+    boolean isFail();
+
+    // Value extraction
+    T getOrThrow();
+    T getOrElse(T defaultValue);
+    T getOrElseGet(Supplier<? extends T> supplier);
+
+    // Transformations
+    <U> Outcome<U> map(Function<? super T, ? extends U> mapper);
+    <U> Outcome<U> flatMap(Function<? super T, ? extends Outcome<U>> mapper);
+
+    // Recovery
+    Outcome<T> recover(Function<? super Failure, ? extends T> recovery);
+    Outcome<T> recoverWith(Function<? super Failure, ? extends Outcome<T>> recovery);
+
+    // Static factories
+    static <T> Outcome<T> ok(T value) {
+        return new Ok<>(value);
+    }
+
+    static <T> Outcome<T> fail(Failure failure) {
+        return new Fail<>(failure);
+    }
+
+    static <T> Outcome<T> fail(FailureKind kind, String operation) {
+        return new Fail<>(Failure.of(kind, operation));
+    }
+}
