@@ -14,6 +14,7 @@ import java.util.Objects;
  * @param correlationId Trace correlation identifier
  * @param tags Additional key-value metadata for observability
  * @param notificationIntent Suggested notification intent
+ * @param trackingId Stable identifier for metrics aggregation (defaults to operation if null)
  */
 public record Failure(
         FailureKind kind,
@@ -21,7 +22,8 @@ public record Failure(
         Instant occurredAt,
         String correlationId,
         Map<String, String> tags,
-        NotificationIntent notificationIntent
+        NotificationIntent notificationIntent,
+        String trackingId
 ) {
 
     public Failure {
@@ -30,6 +32,7 @@ public record Failure(
         Objects.requireNonNull(occurredAt, "occurredAt must not be null");
         tags = tags == null ? Map.of() : Map.copyOf(tags);
         notificationIntent = notificationIntent == null ? NotificationIntent.OBSERVE : notificationIntent;
+        trackingId = trackingId == null ? operation : trackingId;
     }
 
     // Convenience accessors that delegate to kind
@@ -61,7 +64,7 @@ public record Failure(
      * Creates a Failure with minimal context. Useful for testing or simple cases.
      */
     public static Failure of(FailureKind kind, String operation) {
-        return new Failure(kind, operation, Instant.now(), null, null, null);
+        return new Failure(kind, operation, Instant.now(), null, null, null, null);
     }
 
     /**
@@ -78,6 +81,7 @@ public record Failure(
         private String correlationId;
         private Map<String, String> tags;
         private NotificationIntent notificationIntent;
+        private String trackingId;
 
         private Builder(FailureKind kind, String operation) {
             this.kind = Objects.requireNonNull(kind);
@@ -104,8 +108,13 @@ public record Failure(
             return this;
         }
 
+        public Builder trackingId(String trackingId) {
+            this.trackingId = trackingId;
+            return this;
+        }
+
         public Failure build() {
-            return new Failure(kind, operation, occurredAt, correlationId, tags, notificationIntent);
+            return new Failure(kind, operation, occurredAt, correlationId, tags, notificationIntent, trackingId);
         }
     }
 }

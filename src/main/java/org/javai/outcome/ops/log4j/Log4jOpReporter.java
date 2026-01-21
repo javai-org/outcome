@@ -1,19 +1,17 @@
 package org.javai.outcome.ops.log4j;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.Marker;
-import org.apache.logging.log4j.MarkerManager;
+import java.util.Map;
 import org.javai.outcome.Cause;
 import org.javai.outcome.Failure;
 import org.javai.outcome.NotificationIntent;
 import org.javai.outcome.ops.OpReporter;
-
-import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 
 /**
- * Reports failures using Log4j2 structured logging.
+ * Reports failures using SLF4J structured logging.
  *
  * <p>Failures are logged with appropriate log levels based on their {@link NotificationIntent}:
  * <ul>
@@ -25,12 +23,15 @@ import java.util.Map;
  *
  * <p>Log entries include structured context via MDC-style key-value pairs for integration
  * with log aggregation systems (ELK, Splunk, etc.).
+ *
+ * <p>Note: This class uses the SLF4J facade, which can be bound to Log4j2, Logback,
+ * or other logging implementations at runtime.
  */
 public class Log4jOpReporter implements OpReporter {
 
-	private static final Marker FAILURE_MARKER = MarkerManager.getMarker("FAILURE");
-	private static final Marker RETRY_MARKER = MarkerManager.getMarker("RETRY");
-	private static final Marker RETRY_EXHAUSTED_MARKER = MarkerManager.getMarker("RETRY_EXHAUSTED");
+	private static final Marker FAILURE_MARKER = MarkerFactory.getMarker("FAILURE");
+	private static final Marker RETRY_MARKER = MarkerFactory.getMarker("RETRY");
+	private static final Marker RETRY_EXHAUSTED_MARKER = MarkerFactory.getMarker("RETRY_EXHAUSTED");
 
 	private final Logger logger;
 
@@ -38,7 +39,7 @@ public class Log4jOpReporter implements OpReporter {
 	 * Creates a Log4jOpReporter using the default logger name.
 	 */
 	public Log4jOpReporter() {
-		this(LogManager.getLogger("org.javai.outcome.OpReporter"));
+		this(LoggerFactory.getLogger("org.javai.outcome.OpReporter"));
 	}
 
 	/**
@@ -47,13 +48,13 @@ public class Log4jOpReporter implements OpReporter {
 	 * @param loggerName the logger name
 	 */
 	public Log4jOpReporter(String loggerName) {
-		this(LogManager.getLogger(loggerName));
+		this(LoggerFactory.getLogger(loggerName));
 	}
 
 	/**
 	 * Creates a Log4jOpReporter with a specific logger instance.
 	 *
-	 * @param logger the Log4j logger to use
+	 * @param logger the SLF4J logger to use
 	 */
 	public Log4jOpReporter(Logger logger) {
 		this.logger = logger;
@@ -61,18 +62,14 @@ public class Log4jOpReporter implements OpReporter {
 
 	@Override
 	public void report(Failure failure) {
-		Level level = levelFor(failure.notificationIntent());
-
-		logger.atLevel(level)
-			.withMarker(FAILURE_MARKER)
-			.log(formatFailureMessage(failure));
+		String message = formatFailureMessage(failure);
+		logAtLevel(failure.notificationIntent(), FAILURE_MARKER, message);
 	}
 
 	@Override
 	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-		logger.atInfo()
-			.withMarker(RETRY_MARKER)
-			.log("Retry attempt {} for operation [{}] with policy [{}]. Code: {}, Message: {}",
+		logger.info(RETRY_MARKER,
+				"Retry attempt {} for operation [{}] with policy [{}]. Code: {}, Message: {}",
 				attemptNumber,
 				failure.operation(),
 				policyId,
@@ -82,14 +79,22 @@ public class Log4jOpReporter implements OpReporter {
 
 	@Override
 	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
-		logger.atWarn()
-			.withMarker(RETRY_EXHAUSTED_MARKER)
-			.log("Retry exhausted for operation [{}] after {} attempts with policy [{}]. Code: {}, Message: {}",
+		logger.warn(RETRY_EXHAUSTED_MARKER,
+				"Retry exhausted for operation [{}] after {} attempts with policy [{}]. Code: {}, Message: {}",
 				failure.operation(),
 				totalAttempts,
 				policyId,
 				failure.code(),
 				failure.message());
+	}
+
+	private void logAtLevel(NotificationIntent intent, Marker marker, String message) {
+		switch (intent) {
+			case PAGE -> logger.error(marker, message);
+			case ALERT -> logger.warn(marker, message);
+			case OBSERVE -> logger.info(marker, message);
+			case NONE -> logger.debug(marker, message);
+		}
 	}
 
 	private String formatFailureMessage(Failure failure) {
@@ -125,14 +130,5 @@ public class Log4jOpReporter implements OpReporter {
 
 	private static String formatCause(Cause cause) {
 		return cause != null ? ", cause=" + cause.type() : "";
-	}
-
-	private static Level levelFor(NotificationIntent intent) {
-		return switch (intent) {
-			case PAGE -> Level.ERROR;
-			case ALERT -> Level.WARN;
-			case OBSERVE -> Level.INFO;
-			case NONE -> Level.DEBUG;
-		};
 	}
 }

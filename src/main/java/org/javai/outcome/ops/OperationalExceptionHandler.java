@@ -1,8 +1,5 @@
 package org.javai.outcome.ops;
 
-import org.javai.outcome.*;
-import org.javai.outcome.boundary.FailureClassifier;
-
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.time.Instant;
 import java.util.Map;
@@ -10,6 +7,10 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureKind;
+import org.javai.outcome.NotificationIntent;
+import org.javai.outcome.boundary.FailureClassifier;
 
 /**
  * Catches uncaught exceptions (defects) at the top of the stack and reports them to operations.
@@ -64,7 +65,8 @@ public final class OperationalExceptionHandler implements UncaughtExceptionHandl
                 Instant.now(),
                 correlationIdSupplier.get(),
                 Map.of("thread.name", thread.getName(), "thread.id", String.valueOf(thread.threadId())),
-                notification
+                notification,
+                null
         );
 
         reporter.report(failure);

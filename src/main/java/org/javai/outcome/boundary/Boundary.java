@@ -1,12 +1,15 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.*;
-import org.javai.outcome.ops.OpReporter;
-
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureKind;
+import org.javai.outcome.FailureStability;
+import org.javai.outcome.NotificationIntent;
+import org.javai.outcome.Outcome;
+import org.javai.outcome.ops.OpReporter;
 
 /**
  * The boundary adapter for integrating third-party APIs that throw checked exceptions.
@@ -92,7 +95,8 @@ public final class Boundary {
                 occurredAt,
                 correlationId,
                 tags,
-                notificationIntent
+                notificationIntent,
+                null
         );
 
         reporter.report(failure);
