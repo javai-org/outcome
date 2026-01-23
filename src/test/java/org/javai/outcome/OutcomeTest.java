@@ -160,6 +160,30 @@ class OutcomeTest {
     }
 
     @Test
+    void fail_withNameAndMessage_createsDefectWithDefaultNamespace() {
+        Outcome<String> outcome = Outcome.fail("missing_data", "Data point missing");
+
+        assertThat(outcome.isFail()).isTrue();
+        Failure failure = ((Outcome.Fail<String>) outcome).failure();
+        assertThat(failure.code().namespace()).isEqualTo("org.javai.outcome");
+        assertThat(failure.code().name()).isEqualTo("missing_data");
+        assertThat(failure.message()).isEqualTo("Data point missing");
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+    }
+
+    @Test
+    void fail_withNamespaceNameAndMessage_createsDefectWithCustomNamespace() {
+        Outcome<String> outcome = Outcome.fail("myapp.orders", "invalid_quantity", "Quantity must be positive");
+
+        assertThat(outcome.isFail()).isTrue();
+        Failure failure = ((Outcome.Fail<String>) outcome).failure();
+        assertThat(failure.code().namespace()).isEqualTo("myapp.orders");
+        assertThat(failure.code().name()).isEqualTo("invalid_quantity");
+        assertThat(failure.message()).isEqualTo("Quantity must be positive");
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+    }
+
+    @Test
     void patternMatching_works() {
         Outcome<String> ok = Outcome.ok("hello");
         Outcome<String> fail = Outcome.fail(createTestFailure("error"));

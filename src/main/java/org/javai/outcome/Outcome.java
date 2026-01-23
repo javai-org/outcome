@@ -152,4 +152,33 @@ public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
     static <T> Outcome<T> fail(FailureKind kind, String operation) {
         return new Fail<>(Failure.of(kind, operation));
     }
+
+    /**
+     * Creates a failed outcome with a simple failure code name and message.
+     * Uses the default namespace "org.javai.outcome" and treats the failure as a defect.
+     *
+     * @param name The failure code name (e.g., "validation_failed", "missing_data")
+     * @param message Human-readable description of what went wrong
+     * @param <T> The type parameter for the outcome
+     * @return A failed outcome
+     */
+    static <T> Outcome<T> fail(String name, String message) {
+        return fail("org.javai.outcome", name, message);
+    }
+
+    /**
+     * Creates a failed outcome with a namespaced failure code and message.
+     * Treats the failure as a defect.
+     *
+     * @param namespace The failure code namespace (e.g., "myapp.orders", "http")
+     * @param name The failure code name (e.g., "validation_failed", "missing_data")
+     * @param message Human-readable description of what went wrong
+     * @param <T> The type parameter for the outcome
+     * @return A failed outcome
+     */
+    static <T> Outcome<T> fail(String namespace, String name, String message) {
+        return new Fail<>(Failure.of(
+                FailureKind.defect(FailureCode.of(namespace, name), message, null),
+                "unspecified"));
+    }
 }
