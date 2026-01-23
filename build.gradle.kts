@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("maven-publish")
 }
 
 group = "org.javai"
@@ -30,4 +31,23 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+        }
+    }
+}
+
+tasks.register("publishLocal") {
+    description = "Publishes to the local Maven repository"
+    group = "publishing"
+    dependsOn(tasks.publishToMavenLocal)
 }
