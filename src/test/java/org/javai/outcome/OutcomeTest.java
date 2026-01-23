@@ -184,6 +184,18 @@ class OutcomeTest {
     }
 
     @Test
+    void fail_withClassNameAndMessage_usesPackageNameAsNamespace() {
+        Outcome<String> outcome = Outcome.fail(OutcomeTest.class, "test_error", "Something went wrong");
+
+        assertThat(outcome.isFail()).isTrue();
+        Failure failure = ((Outcome.Fail<String>) outcome).failure();
+        assertThat(failure.code().namespace()).isEqualTo("org.javai.outcome");
+        assertThat(failure.code().name()).isEqualTo("test_error");
+        assertThat(failure.message()).isEqualTo("Something went wrong");
+        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+    }
+
+    @Test
     void patternMatching_works() {
         Outcome<String> ok = Outcome.ok("hello");
         Outcome<String> fail = Outcome.fail(createTestFailure("error"));

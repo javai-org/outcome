@@ -181,4 +181,18 @@ public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
                 FailureKind.defect(FailureCode.of(namespace, name), message, null),
                 "unspecified"));
     }
+
+    /**
+     * Creates a failed outcome using the class's package name as the failure code namespace.
+     * Treats the failure as a defect.
+     *
+     * @param clazz The class whose package name will be used as the namespace
+     * @param name The failure code name (e.g., "validation_failed", "missing_data")
+     * @param message Human-readable description of what went wrong
+     * @param <T> The type parameter for the outcome
+     * @return A failed outcome
+     */
+    static <T> Outcome<T> fail(Class<?> clazz, String name, String message) {
+        return fail(clazz.getPackageName(), name, message);
+    }
 }
