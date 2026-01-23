@@ -141,6 +141,10 @@ public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
     Outcome<T> recoverWith(Function<? super Failure, ? extends Outcome<T>> recovery);
 
     // Static factories
+    static Outcome<Void> ok() {
+        return new Ok<>(null);
+    }
+
     static <T> Outcome<T> ok(T value) {
         return new Ok<>(value);
     }
