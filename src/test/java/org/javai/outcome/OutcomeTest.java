@@ -7,6 +7,17 @@ import static org.assertj.core.api.Assertions.*;
 class OutcomeTest {
 
     @Test
+    void ok_minimalOk() {
+        Outcome<Void> outcome = Outcome.ok();
+
+        assertThat(outcome.isOk()).isTrue();
+        assertThat(outcome.isFail()).isFalse();
+        assertThat(outcome).isInstanceOf(Outcome.Ok.class);
+        assertThat(((Outcome.Ok<Void>) outcome).value()).isNull();
+    }
+
+
+    @Test
     void ok_containsValue() {
         Outcome<String> outcome = Outcome.ok("hello");
 
