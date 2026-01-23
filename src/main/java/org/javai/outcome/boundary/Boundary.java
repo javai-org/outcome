@@ -23,7 +23,14 @@ import org.javai.outcome.ops.OpReporter;
  *
  * <p>Example usage:</p>
  * <pre>{@code
- * Boundary boundary = new Boundary(classifier, reporter);
+ * // Simple usage for testing or prototyping
+ * Boundary boundary = Boundary.silent();
+ *
+ * // Production usage with reporting
+ * Boundary boundary = Boundary.withReporter(myReporter);
+ *
+ * // Full control
+ * Boundary boundary = Boundary.of(classifier, reporter);
  *
  * Outcome<Response> result = boundary.call(
  *     "HttpClient.send",
@@ -33,9 +40,50 @@ import org.javai.outcome.ops.OpReporter;
  */
 public final class Boundary {
 
+    private static final FailureClassifier DEFAULT_CLASSIFIER = new BoundaryFailureClassifier();
+
     private final FailureClassifier classifier;
     private final OpReporter reporter;
     private final Supplier<String> correlationIdSupplier;
+
+    /**
+     * Creates a silent Boundary that classifies failures but does not report them.
+     *
+     * <p>Useful for testing, prototyping, or simple scripts where operational
+     * reporting is not needed.
+     *
+     * @return a Boundary with default classification and no reporting
+     */
+    public static Boundary silent() {
+        return new Boundary(DEFAULT_CLASSIFIER, OpReporter.noOp());
+    }
+
+    /**
+     * Creates a Boundary with default classification and the specified reporter.
+     *
+     * <p>This is the recommended factory for production use when the default
+     * {@link BoundaryFailureClassifier} is sufficient.
+     *
+     * @param reporter the reporter for failure notifications
+     * @return a Boundary with default classification and custom reporting
+     */
+    public static Boundary withReporter(OpReporter reporter) {
+        return new Boundary(DEFAULT_CLASSIFIER, reporter);
+    }
+
+    /**
+     * Creates a Boundary with custom classification and reporting.
+     *
+     * <p>Use this factory when you need full control over both failure
+     * classification and reporting behavior.
+     *
+     * @param classifier the classifier for translating exceptions to failures
+     * @param reporter the reporter for failure notifications
+     * @return a fully configured Boundary
+     */
+    public static Boundary of(FailureClassifier classifier, OpReporter reporter) {
+        return new Boundary(classifier, reporter);
+    }
 
     public Boundary(FailureClassifier classifier, OpReporter reporter) {
         this(classifier, reporter, () -> null);
