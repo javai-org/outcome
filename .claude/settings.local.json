@@ -7,7 +7,10 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(git status:*)",
-      "Bash(./gradlew tasks:*)"
+      "Bash(./gradlew tasks:*)",
+      "Bash(./gradlew publishLocal:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)"
     ]
   }
 }

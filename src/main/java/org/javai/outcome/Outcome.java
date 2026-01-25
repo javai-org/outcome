@@ -10,7 +10,7 @@ import java.util.function.Supplier;
  *
  * @param <T> The type of the successful value
  */
-public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
+public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
 
     /**
      * A successful outcome containing a value.
