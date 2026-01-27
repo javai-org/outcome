@@ -1,13 +1,9 @@
 package org.javai.outcome.boundary;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.javai.outcome.Failure;
-import org.javai.outcome.FailureKind;
-import org.javai.outcome.FailureStability;
-import org.javai.outcome.NotificationIntent;
 import org.javai.outcome.Outcome;
 import org.javai.outcome.ops.OpReporter;
 
@@ -131,33 +127,16 @@ public final class Boundary {
     }
 
     private <T> Outcome<T> handleException(String operation, Map<String, String> tags, Exception e) {
-        Instant occurredAt = Instant.now();
         String correlationId = correlationIdSupplier.get();
 
-        FailureKind kind = classifier.classify(operation, e);
-        NotificationIntent notificationIntent = determineNotificationIntent(kind);
+        Failure failure = classifier.classify(operation, e);
 
-        Failure failure = new Failure(
-                kind,
-                operation,
-                occurredAt,
-                correlationId,
-                tags,
-                notificationIntent,
-                null
-        );
+        // Enrich with context if needed
+        if (correlationId != null || !tags.isEmpty()) {
+            failure = failure.withContext(correlationId, tags);
+        }
 
         reporter.report(failure);
         return Outcome.fail(failure);
-    }
-
-    private NotificationIntent determineNotificationIntent(FailureKind kind) {
-        return switch (kind.category()) {
-            case RECOVERABLE -> kind.stability() == FailureStability.TRANSIENT
-                    ? NotificationIntent.OBSERVE
-                    : NotificationIntent.ALERT;
-            case DEFECT -> NotificationIntent.ALERT;
-            case TERMINAL -> NotificationIntent.PAGE;
-        };
     }
 }

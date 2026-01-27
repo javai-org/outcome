@@ -1,8 +1,10 @@
 package org.javai.outcome.retry;
 
 import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
 import org.javai.outcome.Outcome;
 import org.javai.outcome.boundary.Boundary;
+import org.javai.outcome.boundary.FailureClassifier;
 import org.javai.outcome.boundary.ThrowingSupplier;
 import org.javai.outcome.ops.OpReporter;
 
@@ -235,6 +237,18 @@ public final class Retrier {
     private static final Duration DEFAULT_INITIAL_DELAY = Duration.ofMillis(100);
     private static final Duration DEFAULT_MAX_DELAY = Duration.ofSeconds(5);
 
+    /**
+     * A classifier that treats all exceptions as TRANSIENT, enabling retry.
+     * Used by convenience methods where we want exceptions to be retried.
+     */
+    private static final FailureClassifier ALWAYS_TRANSIENT_CLASSIFIER =
+            (operation, throwable) -> Failure.transientFailure(
+                    FailureId.of("retry", throwable.getClass().getSimpleName()),
+                    throwable.getMessage() != null ? throwable.getMessage() : throwable.getClass().getName(),
+                    operation,
+                    throwable
+            );
+
     private static void requireValidAttempts(int maxAttempts) {
         if (maxAttempts <= 0) {
             throw new IllegalArgumentException("maxAttempts must be > 0, was: " + maxAttempts);
@@ -277,7 +291,7 @@ public final class Retrier {
         Objects.requireNonNull(initialDelay, "initialDelay must not be null");
         Objects.requireNonNull(work, "work must not be null");
 
-        Boundary boundary = Boundary.silent();
+        Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = new Retrier(OpReporter.noOp());
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
                 "attempt", maxAttempts, initialDelay, DEFAULT_MAX_DELAY
@@ -361,7 +375,7 @@ public final class Retrier {
         Objects.requireNonNull(delay, "delay must not be null");
         Objects.requireNonNull(work, "work must not be null");
 
-        Boundary boundary = Boundary.silent();
+        Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = new Retrier(OpReporter.noOp());
         RetryPolicy policy = RetryPolicy.fixed("fixed-delay", maxAttempts, delay);
         return retrier.execute("fixed-delay", policy, boundary, work);
@@ -402,7 +416,7 @@ public final class Retrier {
         requireValidAttempts(maxAttempts);
         Objects.requireNonNull(work, "work must not be null");
 
-        Boundary boundary = Boundary.silent();
+        Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = new Retrier(OpReporter.noOp());
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
                 "corrective", maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY
@@ -426,7 +440,7 @@ public final class Retrier {
      * @return the final Outcome after success or retry exhaustion
      * @throws IllegalArgumentException if maxAttempts is not positive
      */
-    public static <T> Outcome<T> attemptWithFeedback(
+    public static <T> Outcome<T>    attemptWithFeedback(
             int maxAttempts,
             Function<String, ThrowingSupplier<T, ? extends Exception>> work,
             Function<Failure, String> failureInterpreter
@@ -435,7 +449,7 @@ public final class Retrier {
         Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(failureInterpreter, "failureInterpreter must not be null");
 
-        Boundary boundary = Boundary.silent();
+        Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = new Retrier(OpReporter.noOp());
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
                 "corrective", maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY

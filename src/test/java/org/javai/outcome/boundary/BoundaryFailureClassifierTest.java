@@ -24,103 +24,89 @@ class BoundaryFailureClassifierTest {
     }
 
     @Test
-    void socketTimeout_isTransientRecoverable() {
-        FailureKind kind = classifier.classify("HttpCall", new SocketTimeoutException("timed out"));
+    void socketTimeout_isTransient() {
+        Failure failure = classifier.classify("HttpCall", new SocketTimeoutException("timed out"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("network", "timeout"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
-        assertThat(kind.retryHint().minDelay()).isNotNull();
+        assertThat(failure.id()).isEqualTo(FailureId.of("network", "timeout"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+        assertThat(failure.retryAfter()).isNotNull();
     }
 
     @Test
-    void connectException_isTransientRecoverable() {
-        FailureKind kind = classifier.classify("Connect", new ConnectException("refused"));
+    void connectException_isTransient() {
+        Failure failure = classifier.classify("Connect", new ConnectException("refused"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("network", "connection_refused"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
+        assertThat(failure.id()).isEqualTo(FailureId.of("network", "connection_refused"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
     }
 
     @Test
-    void unknownHost_isPermanentRecoverable() {
-        FailureKind kind = classifier.classify("Resolve", new UnknownHostException("bad.host"));
+    void unknownHost_isPermanent() {
+        Failure failure = classifier.classify("Resolve", new UnknownHostException("bad.host"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("network", "unknown_host"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("network", "unknown_host"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
     }
 
     @Test
-    void fileNotFound_isPermanentRecoverable() {
-        FailureKind kind = classifier.classify("ReadFile", new FileNotFoundException("/missing/file"));
+    void fileNotFound_isPermanent() {
+        Failure failure = classifier.classify("ReadFile", new FileNotFoundException("/missing/file"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("io", "file_not_found"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("io", "file_not_found"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
     }
 
     @Test
-    void genericIOException_isTransientWithMaybeRetry() {
-        FailureKind kind = classifier.classify("IO", new IOException("something"));
+    void genericIOException_isTransient() {
+        Failure failure = classifier.classify("IO", new IOException("something"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("io", "io_error"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.MAYBE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("io", "io_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
     }
 
     @Test
     void sqlTransientException_isTransient() {
-        FailureKind kind = classifier.classify("Query",
+        Failure failure = classifier.classify("Query",
                 new SQLTransientConnectionException("connection lost"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("sql", "transient"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.YES);
+        assertThat(failure.id()).isEqualTo(FailureId.of("sql", "transient"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
     }
 
     @Test
     void sqlConnectionException_isTransient() {
         SQLException sqlEx = new SQLException("connection error", "08001");
-        FailureKind kind = classifier.classify("Query", sqlEx);
+        Failure failure = classifier.classify("Query", sqlEx);
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("sql", "connection"));
-        assertThat(kind.stability()).isEqualTo(FailureStability.TRANSIENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("sql", "connection"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
     }
 
     @Test
-    void genericSQLException_hasUnknownStability() {
+    void genericSQLException_isPermanent() {
         SQLException sqlEx = new SQLException("some error", "42000");
-        FailureKind kind = classifier.classify("Query", sqlEx);
+        Failure failure = classifier.classify("Query", sqlEx);
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("sql", "error"));
-        assertThat(kind.stability()).isEqualTo(FailureStability.UNKNOWN);
+        assertThat(failure.id()).isEqualTo(FailureId.of("sql", "error"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
     }
 
     @Test
-    void unknownCheckedException_isRecoverable() {
+    void unknownCheckedException_isPermanent() {
         Exception customChecked = new Exception("unknown checked");
-        FailureKind kind = classifier.classify("Unknown", customChecked);
+        Failure failure = classifier.classify("Unknown", customChecked);
 
-        assertThat(kind.code().namespace()).isEqualTo("unknown");
-        assertThat(kind.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(kind.stability()).isEqualTo(FailureStability.UNKNOWN);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.MAYBE);
+        assertThat(failure.id().namespace()).isEqualTo("unknown");
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
     }
 
     @Test
-    void cause_isPopulated() {
+    void exception_isPopulated() {
         Exception ex = new SocketTimeoutException("timeout");
-        FailureKind kind = classifier.classify("Op", ex);
+        Failure failure = classifier.classify("Op", ex);
 
-        assertThat(kind.cause()).isNotNull();
-        assertThat(kind.cause().type()).isEqualTo("java.net.SocketTimeoutException");
-        assertThat(kind.cause().detail()).isEqualTo("timeout");
+        assertThat(failure.exception()).isNotNull();
+        assertThat(failure.exception()).isEqualTo(ex);
+        assertThat(failure.exception().getMessage()).isEqualTo("timeout");
     }
 }

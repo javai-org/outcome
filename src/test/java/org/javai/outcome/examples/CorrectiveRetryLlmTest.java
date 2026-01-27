@@ -54,7 +54,7 @@ public class CorrectiveRetryLlmTest {
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
 				failure -> {
-					String message = failure.kind().message();
+					String message = failure.message();
 					if (message.contains("end-of-input") || message.contains("Unexpected end")) {
 						return "Your JSON was incomplete. Please ensure all braces and brackets are closed.";
 					}
@@ -95,7 +95,7 @@ public class CorrectiveRetryLlmTest {
 					String response = chatClient.chat(SYSTEM_PROMPT, userMessage);
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
-				failure -> "JSON parsing failed: " + failure.kind().message());
+				failure -> "JSON parsing failed: " + failure.message());
 
 		assertThat(result.isOk()).isTrue();
 		assertThat(result.getOrThrow().item()).isEqualTo("oranges");
@@ -128,7 +128,7 @@ public class CorrectiveRetryLlmTest {
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
 				failure -> {
-					String message = failure.kind().message();
+					String message = failure.message();
 					if (message.contains("Unrecognized token") || message.contains("Unexpected character")) {
 						return "Please return only JSON. Do not include conversational text.";
 					}

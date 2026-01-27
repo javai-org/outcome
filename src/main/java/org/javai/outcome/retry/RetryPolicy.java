@@ -1,7 +1,7 @@
 package org.javai.outcome.retry;
 
 import org.javai.outcome.Failure;
-import org.javai.outcome.Retryability;
+import org.javai.outcome.FailureType;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -60,7 +60,7 @@ public interface RetryPolicy {
 
             @Override
             public RetryDecision decide(RetryContext context, Failure failure) {
-                if (failure.retryHint().retryability() == Retryability.NONE) {
+                if (failure.type() != FailureType.TRANSIENT) {
                     return RetryDecision.GiveUp.because("failure is not retryable");
                 }
                 if (context.attemptNumber() >= maxAttempts) {
@@ -93,7 +93,7 @@ public interface RetryPolicy {
 
             @Override
             public RetryDecision decide(RetryContext context, Failure failure) {
-                if (failure.retryHint().retryability() == Retryability.NONE) {
+                if (failure.type() != FailureType.TRANSIENT) {
                     return RetryDecision.GiveUp.because("failure is not retryable");
                 }
                 if (context.attemptNumber() >= maxAttempts) {
@@ -110,8 +110,8 @@ public interface RetryPolicy {
                     delay = maxDelay;
                 }
 
-                // Respect failure's minDelay hint
-                Duration hintDelay = failure.retryHint().minDelay();
+                // Respect failure's retryAfter hint
+                Duration hintDelay = failure.retryAfter();
                 if (hintDelay != null && hintDelay.compareTo(delay) > 0) {
                     delay = hintDelay;
                 }

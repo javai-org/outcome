@@ -36,8 +36,8 @@ class OperationalExceptionHandlerTest {
 
         assertThat(reportedFailures).hasSize(1);
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.code()).isEqualTo(FailureCode.of("defect", "null_pointer"));
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "null_pointer"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
@@ -57,7 +57,7 @@ class OperationalExceptionHandlerTest {
         handler.uncaughtException(Thread.currentThread(), new NullPointerException());
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
         assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
@@ -67,7 +67,7 @@ class OperationalExceptionHandlerTest {
         handler.uncaughtException(Thread.currentThread(), new RuntimeException("unknown"));
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
         assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
@@ -99,8 +99,8 @@ class OperationalExceptionHandlerTest {
         thread.join(1000);
 
         assertThat(reportedFailures).hasSize(1);
-        assertThat(reportedFailures.getFirst().code())
-                .isEqualTo(FailureCode.of("defect", "illegal_state"));
+        assertThat(reportedFailures.getFirst().id())
+                .isEqualTo(FailureId.of("defect", "illegal_state"));
     }
 
     @Test

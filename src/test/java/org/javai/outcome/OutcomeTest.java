@@ -176,10 +176,10 @@ class OutcomeTest {
 
         assertThat(outcome.isFail()).isTrue();
         Failure failure = ((Outcome.Fail<String>) outcome).failure();
-        assertThat(failure.code().namespace()).isEqualTo("org.javai.outcome");
-        assertThat(failure.code().name()).isEqualTo("missing_data");
+        assertThat(failure.id().namespace()).isEqualTo("org.javai.outcome");
+        assertThat(failure.id().name()).isEqualTo("missing_data");
         assertThat(failure.message()).isEqualTo("Data point missing");
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
@@ -188,10 +188,10 @@ class OutcomeTest {
 
         assertThat(outcome.isFail()).isTrue();
         Failure failure = ((Outcome.Fail<String>) outcome).failure();
-        assertThat(failure.code().namespace()).isEqualTo("myapp.orders");
-        assertThat(failure.code().name()).isEqualTo("invalid_quantity");
+        assertThat(failure.id().namespace()).isEqualTo("myapp.orders");
+        assertThat(failure.id().name()).isEqualTo("invalid_quantity");
         assertThat(failure.message()).isEqualTo("Quantity must be positive");
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
@@ -200,10 +200,10 @@ class OutcomeTest {
 
         assertThat(outcome.isFail()).isTrue();
         Failure failure = ((Outcome.Fail<String>) outcome).failure();
-        assertThat(failure.code().namespace()).isEqualTo("org.javai.outcome");
-        assertThat(failure.code().name()).isEqualTo("test_error");
+        assertThat(failure.id().namespace()).isEqualTo("org.javai.outcome");
+        assertThat(failure.id().name()).isEqualTo("test_error");
         assertThat(failure.message()).isEqualTo("Something went wrong");
-        assertThat(failure.category()).isEqualTo(FailureCategory.DEFECT);
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
@@ -226,11 +226,11 @@ class OutcomeTest {
     }
 
     private Failure createTestFailure(String message) {
-        FailureKind kind = FailureKind.transientFailure(
-                FailureCode.of("test", "error"),
+        return Failure.transientFailure(
+                FailureId.of("test", "error"),
                 message,
+                "TestOperation",
                 null
         );
-        return Failure.of(kind, "TestOperation");
     }
 }

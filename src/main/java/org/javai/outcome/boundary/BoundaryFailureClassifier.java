@@ -1,6 +1,8 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.*;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -19,10 +21,10 @@ import java.util.concurrent.TimeoutException;
  * Classifies checked exceptions into recoverable failures for use with {@link Boundary}.
  *
  * <p>This classifier handles common JDK checked exceptions (IO, network, SQL) and
- * translates them into appropriate {@link FailureKind} values with sensible defaults
- * for stability and retry hints.
+ * translates them into appropriate {@link Failure} values with sensible defaults
+ * for type and retry hints.
  *
- * <p>All failures produced by this classifier are {@link FailureCategory#RECOVERABLE}
+ * <p>All failures produced by this classifier are either TRANSIENT or PERMANENT
  * since checked exceptions represent expected operational conditions that the
  * application can handle via retry, fallback, or graceful degradation.
  *
@@ -32,122 +34,131 @@ import java.util.concurrent.TimeoutException;
 public class BoundaryFailureClassifier implements FailureClassifier {
 
     @Override
-    public FailureKind classify(String operation, Throwable t) {
-        Cause cause = Cause.fromThrowable(t);
-
+    public Failure classify(String operation, Throwable t) {
         // Network: transient, retryable
         if (t instanceof SocketTimeoutException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("network", "timeout"),
+            return Failure.transientFailure(
+                    FailureId.of("network", "timeout"),
                     messageFor("Socket timeout", t),
-                    cause
-            ).withRetryHint(RetryHint.withDelay(Duration.ofMillis(500)));
+                    operation,
+                    t,
+                    Duration.ofMillis(500)
+            );
         }
 
         if (t instanceof HttpTimeoutException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("network", "http_timeout"),
+            return Failure.transientFailure(
+                    FailureId.of("network", "http_timeout"),
                     messageFor("HTTP timeout", t),
-                    cause
-            ).withRetryHint(RetryHint.withDelay(Duration.ofMillis(500)));
+                    operation,
+                    t,
+                    Duration.ofMillis(500)
+            );
         }
 
         if (t instanceof ConnectException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("network", "connection_refused"),
+            return Failure.transientFailure(
+                    FailureId.of("network", "connection_refused"),
                     messageFor("Connection refused", t),
-                    cause
-            ).withRetryHint(RetryHint.withDelay(Duration.ofSeconds(1)));
+                    operation,
+                    t,
+                    Duration.ofSeconds(1)
+            );
         }
 
         if (t instanceof UnknownHostException) {
-            return FailureKind.permanentFailure(
-                    FailureCode.of("network", "unknown_host"),
+            return Failure.permanentFailure(
+                    FailureId.of("network", "unknown_host"),
                     messageFor("Unknown host", t),
-                    cause
+                    operation,
+                    t
             );
         }
 
         if (t instanceof TimeoutException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("operation", "timeout"),
+            return Failure.transientFailure(
+                    FailureId.of("operation", "timeout"),
                     messageFor("Operation timeout", t),
-                    cause
+                    operation,
+                    t
             );
         }
 
         // File system: usually permanent
         if (t instanceof FileNotFoundException || t instanceof NoSuchFileException) {
-            return FailureKind.permanentFailure(
-                    FailureCode.of("io", "file_not_found"),
+            return Failure.permanentFailure(
+                    FailureId.of("io", "file_not_found"),
                     messageFor("File not found", t),
-                    cause
+                    operation,
+                    t
             );
         }
 
         if (t instanceof AccessDeniedException) {
-            return FailureKind.permanentFailure(
-                    FailureCode.of("io", "access_denied"),
+            return Failure.permanentFailure(
+                    FailureId.of("io", "access_denied"),
                     messageFor("Access denied", t),
-                    cause
+                    operation,
+                    t
             );
         }
 
         // General IO: assume transient unless we know otherwise
         if (t instanceof IOException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("io", "io_error"),
+            return Failure.transientFailure(
+                    FailureId.of("io", "io_error"),
                     messageFor("IO error", t),
-                    cause
-            ).withRetryHint(RetryHint.maybe("io_unknown"));
+                    operation,
+                    t
+            );
         }
 
         // SQL: check for transient subtype
         if (t instanceof SQLTransientException) {
-            return FailureKind.transientFailure(
-                    FailureCode.of("sql", "transient"),
+            return Failure.transientFailure(
+                    FailureId.of("sql", "transient"),
                     messageFor("SQL transient error", t),
-                    cause
+                    operation,
+                    t
             );
         }
 
         if (t instanceof SQLException sqlEx) {
-            return classifySqlException(sqlEx, cause);
+            return classifySqlException(operation, sqlEx);
         }
 
         // Fallback for unknown checked exceptions
-        return classifyUnknownException(t, cause);
+        return classifyUnknownException(operation, t);
     }
 
-    private static FailureKind classifySqlException(SQLException sqlEx, Cause cause) {
+    private static Failure classifySqlException(String operation, SQLException sqlEx) {
         String sqlState = sqlEx.getSQLState();
         if (sqlState != null && sqlState.startsWith("08")) {
-            // Connection exceptions
-            return FailureKind.transientFailure(
-                    FailureCode.of("sql", "connection"),
+            // Connection exceptions are transient
+            return Failure.transientFailure(
+                    FailureId.of("sql", "connection"),
                     messageFor("SQL connection error", sqlEx),
-                    cause
+                    operation,
+                    sqlEx
             );
         }
-        return new FailureKind(
-                FailureCode.of("sql", "error"),
+        // Unknown SQL errors - treat as permanent (conservative)
+        return Failure.permanentFailure(
+                FailureId.of("sql", "error"),
                 messageFor("SQL error", sqlEx),
-                FailureCategory.RECOVERABLE,
-                FailureStability.UNKNOWN,
-                RetryHint.maybe("sql_unknown"),
-                cause
+                operation,
+                sqlEx
         );
     }
 
-    private static FailureKind classifyUnknownException(Throwable t, Cause cause) {
+    private static Failure classifyUnknownException(String operation, Throwable t) {
         String message = t.getMessage() != null ? t.getMessage() : t.getClass().getName();
-        return new FailureKind(
-                FailureCode.of("unknown", t.getClass().getSimpleName()),
+        // Unknown checked exceptions - treat as permanent (conservative)
+        return Failure.permanentFailure(
+                FailureId.of("unknown", t.getClass().getSimpleName()),
                 message,
-                FailureCategory.RECOVERABLE,
-                FailureStability.UNKNOWN,
-                RetryHint.maybe("unknown_exception"),
-                cause
+                operation,
+                t
         );
     }
 

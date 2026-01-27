@@ -47,6 +47,6 @@ public class JsonParsingTest {
 
         assertThat(outcome.isFail()).isTrue();
         Failure failure = ((Outcome.Fail<User>) outcome).failure();
-        assertThat(failure.code().toString()).startsWith("io:");
+        assertThat(failure.id().toString()).startsWith("io:");
     }
 }
