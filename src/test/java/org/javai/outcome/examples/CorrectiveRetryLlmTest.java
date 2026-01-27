@@ -35,8 +35,8 @@ public class CorrectiveRetryLlmTest {
 
 	@Test
 	void correctiveRetry_llmSelfCorrectsAfterInvalidJsonFeedback() {
-		String userInput = "Add 3 apples to my basket";
-		MockLlm mockLlm = new MockLlm(
+		String userMessage = "Add 3 apples to my basket";
+		MockChatClient chatClient = new MockChatClient(
 				// First response: invalid JSON (missing closing brace)
 				"""
 				{"command": "addToBasket", "item": "apples", "quantity": 3""",
@@ -44,14 +44,13 @@ public class CorrectiveRetryLlmTest {
 				"""
 				{"command": "addToBasket", "item": "apples", "quantity": 3}""");
 
-		List<String> promptsReceived = new ArrayList<>();
-
 		Outcome<BasketCommand> result = Retrier.attemptWithFeedback(
 				3,
 				feedback -> {
-					String prompt = buildPrompt(userInput, feedback);
-					promptsReceived.add(prompt);
-					String response = mockLlm.respond();
+					String fullUserMessage = feedback == null
+							? userMessage
+							: userMessage + "\n\nPrevious error: " + feedback;
+					String response = chatClient.chat(SYSTEM_PROMPT, fullUserMessage);
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
 				failure -> {
@@ -71,44 +70,45 @@ public class CorrectiveRetryLlmTest {
 		assertThat(command.item()).isEqualTo("apples");
 		assertThat(command.quantity()).isEqualTo(3);
 
-		// Verify prompt progression
-		assertThat(promptsReceived).hasSize(2);
-		assertThat(promptsReceived.get(0)).contains(SYSTEM_PROMPT).contains(userInput).doesNotContain("Previous error");
-		assertThat(promptsReceived.get(1))
-				.contains(SYSTEM_PROMPT)
-				.contains(userInput)
-				.contains("Previous error")
-				.contains("braces and brackets are closed");
+		// Verify the chat client received the expected messages
+		assertThat(chatClient.getReceivedMessages()).hasSize(2);
+
+		MockChatClient.Message firstCall = chatClient.getReceivedMessages().get(0);
+		assertThat(firstCall.systemMessage()).isEqualTo(SYSTEM_PROMPT);
+		assertThat(firstCall.userMessage()).isEqualTo(userMessage);
+
+		MockChatClient.Message secondCall = chatClient.getReceivedMessages().get(1);
+		assertThat(secondCall.systemMessage()).isEqualTo(SYSTEM_PROMPT);
+		assertThat(secondCall.userMessage()).contains(userMessage).contains("braces and brackets are closed");
 	}
 
 	@Test
 	void correctiveRetry_llmReturnsValidJsonOnFirstAttempt() {
-		String userInput = "Add 5 oranges to my basket";
-		MockLlm mockLlm =
-				new MockLlm("""
+		String userMessage = "Add 5 oranges to my basket";
+		MockChatClient chatClient = new MockChatClient(
+				"""
 				{"command": "addToBasket", "item": "oranges", "quantity": 5}""");
-
-		List<String> feedbackReceived = new ArrayList<>();
 
 		Outcome<BasketCommand> result = Retrier.attemptWithFeedback(
 				3,
 				feedback -> {
-					feedbackReceived.add(feedback);
-					String response = mockLlm.respond();
+					String response = chatClient.chat(SYSTEM_PROMPT, userMessage);
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
 				failure -> "JSON parsing failed: " + failure.kind().message());
 
 		assertThat(result.isOk()).isTrue();
 		assertThat(result.getOrThrow().item()).isEqualTo("oranges");
-		assertThat(feedbackReceived).hasSize(1);
-		assertThat(feedbackReceived.get(0)).isNull(); // No feedback on first attempt
+
+		// Verify only one call was made (no retries needed)
+		assertThat(chatClient.getReceivedMessages()).hasSize(1);
+		assertThat(chatClient.getReceivedMessages().getFirst().userMessage()).isEqualTo(userMessage);
 	}
 
 	@Test
 	void correctiveRetry_llmReceivesMultipleFeedbackRounds() {
-		String userInput = "Add 2 bananas to my basket";
-		MockLlm mockLlm = new MockLlm(
+		String userMessage = "Add 2 bananas to my basket";
+		MockChatClient chatClient = new MockChatClient(
 				// First: completely invalid - not JSON at all
 				"Sure! I'll add bananas to your basket.",
 				// Second: invalid JSON - unclosed string
@@ -118,13 +118,13 @@ public class CorrectiveRetryLlmTest {
 				"""
 				{"command": "addToBasket", "item": "bananas", "quantity": 2}""");
 
-		List<String> feedbackReceived = new ArrayList<>();
-
 		Outcome<BasketCommand> result = Retrier.attemptWithFeedback(
 				4,
 				feedback -> {
-					feedbackReceived.add(feedback);
-					String response = mockLlm.respond();
+					String fullUserMessage = feedback == null
+							? userMessage
+							: userMessage + "\n\nPrevious error: " + feedback;
+					String response = chatClient.chat(SYSTEM_PROMPT, fullUserMessage);
 					return () -> objectMapper.readValue(response, BasketCommand.class);
 				},
 				failure -> {
@@ -141,37 +141,40 @@ public class CorrectiveRetryLlmTest {
 		assertThat(result.isOk()).isTrue();
 		assertThat(result.getOrThrow().item()).isEqualTo("bananas");
 
-		assertThat(feedbackReceived).hasSize(3);
-		assertThat(feedbackReceived.get(0)).isNull();
-		assertThat(feedbackReceived.get(1)).contains("only JSON");
-		assertThat(feedbackReceived.get(2)).contains("incomplete");
-	}
-
-	private String buildPrompt(String userInput, String feedback) {
-		StringBuilder prompt = new StringBuilder();
-		prompt.append("System: ").append(SYSTEM_PROMPT).append("\n\n");
-		prompt.append("User: ").append(userInput);
-		if (feedback != null) {
-			prompt.append("\n\nPrevious error: ").append(feedback);
-		}
-		return prompt.toString();
+		// Verify three calls were made with progressively more feedback
+		List<MockChatClient.Message> messages = chatClient.getReceivedMessages();
+		assertThat(messages).hasSize(3);
+		assertThat(messages.get(0).userMessage()).isEqualTo(userMessage);
+		assertThat(messages.get(1).userMessage()).contains("only JSON");
+		assertThat(messages.get(2).userMessage()).contains("incomplete");
 	}
 
 	/**
-	 * Mock LLM that returns pre-configured responses in sequence.
+	 * Mock chat client that simulates an LLM API accepting system and user messages.
+	 *
+	 * <p>Returns pre-configured responses in sequence, capturing each request
+	 * for verification in tests.
 	 */
-	private static class MockLlm {
+	private static class MockChatClient {
 		private final String[] responses;
+		private final List<Message> receivedMessages = new ArrayList<>();
 		private int callCount = 0;
 
-		MockLlm(String... responses) {
+		MockChatClient(String... responses) {
 			this.responses = responses;
 		}
 
-		String respond() {
+		String chat(String systemMessage, String userMessage) {
+			receivedMessages.add(new Message(systemMessage, userMessage));
 			int index = Math.min(callCount++, responses.length - 1);
 			return responses[index];
 		}
+
+		List<Message> getReceivedMessages() {
+			return receivedMessages;
+		}
+
+		record Message(String systemMessage, String userMessage) {}
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
