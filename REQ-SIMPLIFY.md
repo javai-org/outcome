@@ -7,7 +7,7 @@ The failure handling system comprises **9 types** arranged in a deep hierarchy:
 ```
 Failure (record, 7 fields)
 ├── kind: FailureKind (record, 6 fields)
-│   ├── code: FailureCode (record, 2 fields)
+│   ├── code: FailureId (record, 2 fields)
 │   ├── message: String
 │   ├── category: FailureCategory (enum: RECOVERABLE, DEFECT, TERMINAL)
 │   ├── stability: FailureStability (enum: TRANSIENT, PERMANENT, UNKNOWN)
@@ -52,7 +52,7 @@ Collapse the hierarchy into a single `Failure` record with everything needed:
 
 ```java
 public record Failure(
-    String code,           // e.g., "network:timeout", "io:file_not_found"
+    FailureId code,      // Structured identifier (namespace:name)
     String message,        // Human-readable description
     FailureType type,      // TRANSIENT, PERMANENT, or DEFECT
     Throwable exception,   // The original exception (nullable)
@@ -62,6 +62,35 @@ public record Failure(
     String correlationId,  // Trace correlation (nullable)
     Map<String, String> tags  // Additional metadata
 ) { }
+```
+
+### Supporting Type: FailureId (record)
+
+Structured identifier for traceable failure codes in operator reports:
+
+```java
+public record FailureId(String namespace, String name) {
+
+    public static FailureId of(String namespace, String name) {
+        return new FailureId(namespace, name);
+    }
+
+    /** Create from a class - uses simple class name as namespace */
+    public static FailureId of(Class<?> source, String name) {
+        return new FailureId(source.getSimpleName(), name);
+    }
+
+    @Override
+    public String toString() {
+        return namespace + ":" + name;
+    }
+}
+```
+
+Usage:
+```java
+FailureId.of("network", "timeout")           // → "network:timeout"
+FailureId.of(OrderService.class, "not_found") // → "OrderService:not_found"
 ```
 
 ### Supporting Type: FailureType (enum)
@@ -101,17 +130,17 @@ public NotificationIntent notificationIntent() {
 
 ### What's Eliminated
 
-| Removed                 | Replacement                        |
-|-------------------------|------------------------------------|
-| `FailureKind` record    | Fields merged into `Failure`       |
-| `FailureCode` record    | Simple `String code` field         |
-| `FailureCategory` enum  | Merged into `FailureType`          |
-| `FailureStability` enum | Merged into `FailureType`          |
-| `RetryHint` record      | Simple `Duration retryAfter` field |
-| `Retryability` enum     | Derived from `type`                |
-| `Cause` record          | Direct `Throwable exception` field |
+| Removed                    | Replacement                        |
+|----------------------------|------------------------------------|
+| `FailureKind` record       | Fields merged into `Failure`       |
+| `FailureCategory` enum     | Merged into `FailureType`          |
+| `FailureCategory.TERMINAL` | Removed (let JVM errors propagate) |
+| `FailureStability` enum    | Merged into `FailureType`          |
+| `RetryHint` record         | Simple `Duration retryAfter` field |
+| `Retryability` enum        | Derived from `type`                |
+| `Cause` record             | Direct `Throwable exception` field |
 
-**Result: 9 types → 2 types** (Failure + FailureType)
+**Result: 9 types → 3 types** (Failure + FailureId + FailureType)
 
 ### Factory Methods
 
@@ -119,17 +148,20 @@ Semantic constructors for common cases:
 
 ```java
 // Network timeout - transient, should retry
-Failure.transient("network:timeout", "Connection timed out", exception, operation)
+Failure.transient(FailureId.of("network", "timeout"), "Connection timed out", exception, operation)
 
 // File not found - permanent, don't retry
-Failure.permanent("io:file_not_found", "File does not exist: " + path, exception, operation)
+Failure.permanent(FailureId.of("io", "file_not_found"), "File does not exist: " + path, exception, operation)
 
 // Null pointer - defect, bug in code
-Failure.defect("defect:null_pointer", "Unexpected null", exception, operation)
+Failure.defect(FailureId.of("defect", "null_pointer"), "Unexpected null", exception, operation)
 
 // Rate limited - transient with specific delay
-Failure.transient("http:rate_limited", "Too many requests", exception, operation)
+Failure.transient(FailureId.of("http", "rate_limited"), "Too many requests", exception, operation)
     .withRetryAfter(Duration.ofSeconds(30))
+
+// Service-scoped failure using class as namespace
+Failure.permanent(FailureId.of(OrderService.class, "not_found"), "Order not found: " + orderId, exception, operation)
 ```
 
 ### Migration Considerations
@@ -139,13 +171,15 @@ Failure.transient("http:rate_limited", "Too many requests", exception, operation
 3. **RetryPolicy** checks `failure.type()` and `failure.retryAfter()` directly
 4. **Existing code** using convenience accessors (`failure.code()`, `failure.message()`) continues to work
 
-## Open Questions
+## Decisions
 
-1. **Should `code` remain structured?** The string "network:timeout" loses type safety but gains simplicity. Alternative: keep `FailureCode` as a simple wrapper for namespace+name validation.
+1. **TERMINAL is removed.** JVM-fatal errors (OOM, StackOverflow) should not go through the failure system. Let them propagate as uncaught exceptions for the infrastructure to handle.
 
-2. **Is TERMINAL still needed?** Currently `FailureCategory.TERMINAL` handles OOM/StackOverflow. These are JVM-fatal and arguably shouldn't go through the failure system at all. Propose: remove TERMINAL, let these propagate as uncaught exceptions.
+2. **Tags are retained.** The `Map<String, String> tags` field remains for structured observability data beyond what the exception provides.
 
-3. **Tags vs. exception metadata?** With the exception available, do we still need tags? Propose: keep tags for structured observability data that isn't in the exception.
+3. **FailureId remains structured.** The `FailureId` record (namespace + name) is retained for traceable IDs in operator reports.
+
+4. **FailureId supports class-based namespaces.** A factory method `FailureId.of(Class<?> source, String name)` allows using a class's simple name as the namespace, tying failures to their service source.
 
 ## Recommendation
 

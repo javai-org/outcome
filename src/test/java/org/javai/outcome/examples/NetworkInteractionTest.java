@@ -33,7 +33,7 @@ public class NetworkInteractionTest {
             @Override
             public void report(Failure failure) {
                 reportedFailures.add(failure);
-                System.out.println("[REPORTED] " + failure.code() + ": " + failure.message());
+                System.out.println("[REPORTED] " + failure.id() + ": " + failure.message());
             }
 
             @Override
@@ -85,9 +85,8 @@ public class NetworkInteractionTest {
 
         // Extract failure details
         Failure failure = ((Outcome.Fail<String>) outcome).failure();
-        assertThat(failure.code()).isEqualTo(FailureCode.of("network", "http_timeout"));
-        assertThat(failure.category()).isEqualTo(FailureCategory.RECOVERABLE);
-        assertThat(failure.stability()).isEqualTo(FailureStability.TRANSIENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("network", "http_timeout"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
 
         // Failure was reported
         assertThat(reportedFailures).hasSize(1);

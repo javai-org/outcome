@@ -8,9 +8,9 @@ import java.util.Objects;
  * @param namespace The domain or subsystem (e.g., "http", "jdbc", "auth")
  * @param name The specific failure type within that namespace (e.g., "timeout", "connection_refused")
  */
-public record FailureCode(String namespace, String name) {
+public record FailureId(String namespace, String name) {
 
-    public FailureCode {
+    public FailureId {
         Objects.requireNonNull(namespace, "namespace must not be null");
         Objects.requireNonNull(name, "name must not be null");
         if (namespace.isBlank()) {
@@ -21,8 +21,22 @@ public record FailureCode(String namespace, String name) {
         }
     }
 
-    public static FailureCode of(String namespace, String name) {
-        return new FailureCode(namespace, name);
+    /**
+     * Creates a FailureId with the given namespace and name.
+     */
+    public static FailureId of(String namespace, String name) {
+        return new FailureId(namespace, name);
+    }
+
+    /**
+     * Creates a FailureId using the class's simple name as the namespace.
+     *
+     * @param source The class that originated the failure
+     * @param name The specific failure type
+     */
+    public static FailureId of(Class<?> source, String name) {
+        Objects.requireNonNull(source, "source must not be null");
+        return new FailureId(source.getSimpleName(), name);
     }
 
     @Override

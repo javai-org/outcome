@@ -1,15 +1,12 @@
 package org.javai.outcome.ops;
 
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.javai.outcome.Failure;
-import org.javai.outcome.FailureKind;
-import org.javai.outcome.NotificationIntent;
 import org.javai.outcome.boundary.FailureClassifier;
 
 /**
@@ -54,31 +51,17 @@ public final class OperationalExceptionHandler implements UncaughtExceptionHandl
     public void uncaughtException(Thread thread, Throwable throwable) {
         String operation = "UncaughtException:" + thread.getName();
 
-        FailureKind kind = classifier.classify(operation, throwable);
+        Failure failure = classifier.classify(operation, throwable);
 
-        // Defects that crash threads should page someone
-        NotificationIntent notification = determineNotificationIntent(kind);
-
-        Failure failure = new Failure(
-                kind,
-                operation,
-                Instant.now(),
-                correlationIdSupplier.get(),
-                Map.of("thread.name", thread.getName(), "thread.id", String.valueOf(thread.threadId())),
-                notification,
-                null
+        // Enrich with thread context
+        Map<String, String> threadTags = Map.of(
+                "thread.name", thread.getName(),
+                "thread.id", String.valueOf(thread.threadId())
         );
 
-        reporter.report(failure);
-    }
+        failure = failure.withContext(correlationIdSupplier.get(), threadTags);
 
-    private NotificationIntent determineNotificationIntent(FailureKind kind) {
-        // Uncaught exceptions are serious—they killed a thread
-        return switch (kind.category()) {
-            case RECOVERABLE -> NotificationIntent.ALERT;
-            case DEFECT -> NotificationIntent.PAGE;
-            case TERMINAL -> NotificationIntent.PAGE;
-        };
+        reporter.report(failure);
     }
 
     /**

@@ -84,8 +84,7 @@ public class TeamsOpReporter implements OpReporter {
 					"facts": [
 						{"name": "Operation", "value": "%s"},
 						{"name": "Code", "value": "%s"},
-						{"name": "Category", "value": "%s"},
-						{"name": "Stability", "value": "%s"},
+						{"name": "Type", "value": "%s"},
 						{"name": "Message", "value": "%s"},
 						{"name": "Correlation", "value": "%s"},
 						{"name": "Occurred", "value": "%s"}
@@ -95,13 +94,12 @@ public class TeamsOpReporter implements OpReporter {
 			}
 			""".formatted(
 				color,
-				escapeJson(failure.code().toString()),
+				escapeJson(failure.id().toString()),
 				emoji,
-				escapeJson(failure.code().toString()),
+				escapeJson(failure.id().toString()),
 				escapeJson(failure.operation()),
-				escapeJson(failure.code().toString()),
-				failure.category(),
-				failure.stability(),
+				escapeJson(failure.id().toString()),
+				failure.type(),
 				escapeJson(failure.message()),
 				formatCorrelationId(failure),
 				formatTimestamp(failure)
@@ -136,7 +134,7 @@ public class TeamsOpReporter implements OpReporter {
 				attemptNumber,
 				escapeJson(failure.operation()),
 				escapeJson(policyId),
-				escapeJson(failure.code().toString())
+				escapeJson(failure.id().toString())
 			);
 	}
 
@@ -168,7 +166,7 @@ public class TeamsOpReporter implements OpReporter {
 				escapeJson(failure.operation()),
 				totalAttempts,
 				escapeJson(policyId),
-				escapeJson(failure.code().toString())
+				escapeJson(failure.id().toString())
 			);
 	}
 

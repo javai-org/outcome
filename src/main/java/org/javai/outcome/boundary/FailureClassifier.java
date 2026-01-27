@@ -1,6 +1,6 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.FailureKind;
+import org.javai.outcome.Failure;
 
 /**
  * Classifies exceptions into structured failures.
@@ -10,11 +10,11 @@ import org.javai.outcome.FailureKind;
 public interface FailureClassifier {
 
     /**
-     * Classifies an exception into a FailureKind.
+     * Classifies an exception into a Failure.
      *
      * @param operation The operation that was being performed
      * @param throwable The exception that occurred
-     * @return A classified FailureKind
+     * @return A classified Failure
      */
-    FailureKind classify(String operation, Throwable throwable);
+    Failure classify(String operation, Throwable throwable);
 }

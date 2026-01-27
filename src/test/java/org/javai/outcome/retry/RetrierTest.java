@@ -183,8 +183,8 @@ class RetrierTest {
         AtomicInteger attempts = new AtomicInteger(0);
         trackingRetrier.execute("Op", policy, () -> {
             if (attempts.incrementAndGet() < 3) {
-                // Failure with minDelay hint greater than calculated delay
-                return Outcome.fail(createTransientFailureWithMinDelay("retry", Duration.ofMillis(500)));
+                // Failure with retryAfter hint greater than calculated delay
+                return Outcome.fail(createTransientFailureWithRetryAfter("retry", Duration.ofMillis(500)));
             }
             return Outcome.ok("done");
         });
@@ -194,33 +194,31 @@ class RetrierTest {
     }
 
     private Failure createTransientFailure(String message) {
-        FailureKind kind = FailureKind.transientFailure(
-                FailureCode.of("test", "transient"),
+        return Failure.transientFailure(
+                FailureId.of("test", "transient"),
                 message,
+                "TestOp",
                 null
         );
-        return Failure.of(kind, "TestOp");
     }
 
-    private Failure createTransientFailureWithMinDelay(String message, Duration minDelay) {
-        FailureKind kind = new FailureKind(
-                FailureCode.of("test", "transient"),
+    private Failure createTransientFailureWithRetryAfter(String message, Duration retryAfter) {
+        return Failure.transientFailure(
+                FailureId.of("test", "transient"),
                 message,
-                FailureCategory.RECOVERABLE,
-                FailureStability.TRANSIENT,
-                RetryHint.withDelay(minDelay),
-                null
+                "TestOp",
+                null,
+                retryAfter
         );
-        return Failure.of(kind, "TestOp");
     }
 
     private Failure createPermanentFailure(String message) {
-        FailureKind kind = FailureKind.permanentFailure(
-                FailureCode.of("test", "permanent"),
+        return Failure.permanentFailure(
+                FailureId.of("test", "permanent"),
                 message,
+                "TestOp",
                 null
         );
-        return Failure.of(kind, "TestOp");
     }
 
     // === STATIC CONVENIENCE METHOD TESTS ===
@@ -367,8 +365,8 @@ class RetrierTest {
 
         assertThat(receivedFailures).hasSize(3);
         assertThat(receivedFailures.get(0)).isNull();  // First attempt
-        assertThat(receivedFailures.get(1).kind().message()).isEqualTo("attempt 1");
-        assertThat(receivedFailures.get(2).kind().message()).isEqualTo("attempt 2");
+        assertThat(receivedFailures.get(1).message()).isEqualTo("attempt 1");
+        assertThat(receivedFailures.get(2).message()).isEqualTo("attempt 2");
     }
 
     @Test
@@ -385,7 +383,7 @@ class RetrierTest {
                     }
                     return Outcome.ok("success");
                 },
-                failure -> "Transformed: " + failure.kind().message()
+                failure -> "Transformed: " + failure.message()
         );
 
         assertThat(receivedFeedback).hasSize(3);
@@ -459,7 +457,7 @@ class RetrierTest {
                         return "success";
                     };
                 },
-                failure -> "Interpreted: " + failure.kind().message()
+                failure -> "Interpreted: " + failure.message()
         );
 
         assertThat(result.isOk()).isTrue();

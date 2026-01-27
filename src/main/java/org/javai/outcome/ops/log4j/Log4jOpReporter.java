@@ -1,7 +1,6 @@
 package org.javai.outcome.ops.log4j;
 
 import java.util.Map;
-import org.javai.outcome.Cause;
 import org.javai.outcome.Failure;
 import org.javai.outcome.NotificationIntent;
 import org.javai.outcome.ops.OpReporter;
@@ -73,7 +72,7 @@ public class Log4jOpReporter implements OpReporter {
 				attemptNumber,
 				failure.operation(),
 				policyId,
-				failure.code(),
+				failure.id(),
 				failure.message());
 	}
 
@@ -84,7 +83,7 @@ public class Log4jOpReporter implements OpReporter {
 				failure.operation(),
 				totalAttempts,
 				policyId,
-				failure.code(),
+				failure.id(),
 				failure.message());
 	}
 
@@ -100,17 +99,16 @@ public class Log4jOpReporter implements OpReporter {
 	private String formatFailureMessage(Failure failure) {
 		return """
 			Failure in operation [%s]: %s \
-			| code=%s, category=%s, stability=%s, notification=%s%s%s%s\
+			| id=%s, type=%s, notification=%s%s%s%s\
 			""".formatted(
 				failure.operation(),
 				failure.message(),
-				failure.code(),
-				failure.category(),
-				failure.stability(),
+				failure.id(),
+				failure.type(),
 				failure.notificationIntent(),
 				formatCorrelationId(failure.correlationId()),
 				formatTags(failure.tags()),
-				formatCause(failure.cause())
+				formatException(failure.exception())
 			).trim();
 	}
 
@@ -128,7 +126,7 @@ public class Log4jOpReporter implements OpReporter {
 				.orElse("") + "}";
 	}
 
-	private static String formatCause(Cause cause) {
-		return cause != null ? ", cause=" + cause.type() : "";
+	private static String formatException(Throwable exception) {
+		return exception != null ? ", exception=" + exception.getClass().getName() : "";
 	}
 }

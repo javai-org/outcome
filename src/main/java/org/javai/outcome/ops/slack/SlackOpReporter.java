@@ -92,8 +92,7 @@ public class SlackOpReporter implements OpReporter {
 							"fields": [
 								{"type": "mrkdwn", "text": "*Code:*\\n%s"},
 								{"type": "mrkdwn", "text": "*Operation:*\\n%s"},
-								{"type": "mrkdwn", "text": "*Category:*\\n%s"},
-								{"type": "mrkdwn", "text": "*Stability:*\\n%s"}
+								{"type": "mrkdwn", "text": "*Type:*\\n%s"}
 							]
 						},
 						{
@@ -116,11 +115,10 @@ public class SlackOpReporter implements OpReporter {
 				escapeJson(channel),
 				color,
 				emoji,
-				escapeJson(failure.code().toString()),
-				escapeJson(failure.code().toString()),
+				escapeJson(failure.id().toString()),
+				escapeJson(failure.id().toString()),
 				escapeJson(failure.operation()),
-				failure.category(),
-				failure.stability(),
+				failure.type(),
 				escapeJson(failure.message()),
 				formatCorrelationId(failure),
 				formatTimestamp(failure)
@@ -155,7 +153,7 @@ public class SlackOpReporter implements OpReporter {
 				attemptNumber,
 				escapeJson(failure.operation()),
 				escapeJson(policyId),
-				escapeJson(failure.code().toString())
+				escapeJson(failure.id().toString())
 			);
 	}
 
@@ -197,7 +195,7 @@ public class SlackOpReporter implements OpReporter {
 				escapeJson(failure.operation()),
 				totalAttempts,
 				escapeJson(policyId),
-				escapeJson(failure.code().toString())
+				escapeJson(failure.id().toString())
 			);
 	}
 

@@ -109,10 +109,9 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "eventType", "failure", true);
 		appendField(sb, "timestamp", ISO_FORMATTER.format(failure.occurredAt()), false);
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
-		appendField(sb, "code", failure.code().toString(), false);
+		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "message", failure.message(), false);
-		appendField(sb, "category", failure.category().name(), false);
-		appendField(sb, "stability", failure.stability().name(), false);
+		appendField(sb, "type", failure.type().name(), false);
 		appendField(sb, "notification", failure.notificationIntent().name(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
@@ -131,7 +130,7 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
 		appendField(sb, "attemptNumber", String.valueOf(attemptNumber), false);
 		appendField(sb, "policyId", policyId, false);
-		appendField(sb, "code", failure.code().toString(), false);
+		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
 			appendField(sb, "correlationId", failure.correlationId(), false);
@@ -148,7 +147,7 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
 		appendField(sb, "totalAttempts", String.valueOf(totalAttempts), false);
 		appendField(sb, "policyId", policyId, false);
-		appendField(sb, "code", failure.code().toString(), false);
+		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
 			appendField(sb, "correlationId", failure.correlationId(), false);

@@ -53,7 +53,7 @@ public class CorrectiveRetryTest {
 					return () -> objectMapper.readValue(response, Order.class);
 				},
 				failure -> {
-					String message = failure.kind().message();
+					String message = failure.message();
 					if (message.contains("Unexpected character")) {
 						return "Your response contained invalid JSON syntax. Please return valid JSON.";
 					}
@@ -116,7 +116,7 @@ public class CorrectiveRetryTest {
 				3,
 				lastFailure -> {
 					if (lastFailure != null) {
-						errorCodes.add(lastFailure.code().toString());
+						errorCodes.add(lastFailure.id().toString());
 					}
 					int attempt = attempts.incrementAndGet();
 					if (attempt < 3) {
@@ -128,7 +128,7 @@ public class CorrectiveRetryTest {
 
 		assertThat(result.isOk()).isTrue();
 		assertThat(errorCodes).hasSize(2);  // Two failures before success
-		assertThat(errorCodes).allMatch(code -> code.startsWith("io:"));
+		assertThat(errorCodes).allMatch(code -> code.startsWith("retry:"));
 	}
 
 	record Order(String id, List<String> items, double total) {

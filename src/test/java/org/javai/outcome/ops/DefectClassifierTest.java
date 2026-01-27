@@ -17,93 +17,82 @@ class DefectClassifierTest {
 
     @Test
     void nullPointer_isDefect() {
-        FailureKind kind = classifier.classify("Process", new NullPointerException("oops"));
+        Failure failure = classifier.classify("Process", new NullPointerException("oops"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "null_pointer"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "null_pointer"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void illegalArgument_isDefect() {
-        FailureKind kind = classifier.classify("Validate",
+        Failure failure = classifier.classify("Validate",
                 new IllegalArgumentException("bad input"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "illegal_argument"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "illegal_argument"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void illegalState_isDefect() {
-        FailureKind kind = classifier.classify("Execute",
+        Failure failure = classifier.classify("Execute",
                 new IllegalStateException("not initialized"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "illegal_state"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "illegal_state"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void unsupportedOperation_isDefect() {
-        FailureKind kind = classifier.classify("Call",
+        Failure failure = classifier.classify("Call",
                 new UnsupportedOperationException("not implemented"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "unsupported_operation"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "unsupported_operation"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void indexOutOfBounds_isDefect() {
-        FailureKind kind = classifier.classify("Access",
+        Failure failure = classifier.classify("Access",
                 new IndexOutOfBoundsException("Index 5 out of bounds"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "index_out_of_bounds"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "index_out_of_bounds"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void classCast_isDefect() {
-        FailureKind kind = classifier.classify("Cast",
+        Failure failure = classifier.classify("Cast",
                 new ClassCastException("String cannot be cast to Integer"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "class_cast"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "class_cast"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void arithmetic_isDefect() {
-        FailureKind kind = classifier.classify("Divide",
+        Failure failure = classifier.classify("Divide",
                 new ArithmeticException("/ by zero"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "arithmetic"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "arithmetic"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
     void unknownRuntimeException_isDefect() {
-        FailureKind kind = classifier.classify("Unknown",
+        Failure failure = classifier.classify("Unknown",
                 new RuntimeException("mystery error"));
 
-        assertThat(kind.code()).isEqualTo(FailureCode.of("defect", "uncategorized"));
-        assertThat(kind.category()).isEqualTo(FailureCategory.DEFECT);
-        assertThat(kind.stability()).isEqualTo(FailureStability.PERMANENT);
-        assertThat(kind.retryHint().retryability()).isEqualTo(Retryability.NONE);
+        assertThat(failure.id()).isEqualTo(FailureId.of("defect", "uncategorized"));
+        assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
     }
 
     @Test
-    void cause_isPopulated() {
+    void exception_isPopulated() {
         Exception ex = new NullPointerException("test");
-        FailureKind kind = classifier.classify("Op", ex);
+        Failure failure = classifier.classify("Op", ex);
 
-        assertThat(kind.cause()).isNotNull();
-        assertThat(kind.cause().type()).isEqualTo("java.lang.NullPointerException");
-        assertThat(kind.cause().detail()).isEqualTo("test");
+        assertThat(failure.exception()).isNotNull();
+        assertThat(failure.exception()).isEqualTo(ex);
+        assertThat(failure.exception().getMessage()).isEqualTo("test");
     }
 }

@@ -80,12 +80,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_withCustomTrackingId_usesCustomId() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.builder(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
-				null
-		);
-		Failure failure = Failure.builder(kind, "OrdersApi.fetchOrder")
+				FailureType.TRANSIENT,
+				"OrdersApi.fetchOrder"
+		)
 				.trackingId("orders.fetch.api")
 				.build();
 
@@ -98,12 +98,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_defaultTrackingId_usesOperation() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.transientFailure(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
+				"OrdersApi.fetchOrder",
 				null
 		);
-		Failure failure = Failure.of(kind, "OrdersApi.fetchOrder");
 
 		assertThat(failure.trackingId()).isEqualTo("OrdersApi.fetchOrder");
 
@@ -116,12 +116,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_escapesJsonSpecialCharacters() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("parse", "invalid"),
+		Failure failure = Failure.builder(
+				FailureId.of("parse", "invalid"),
 				"Invalid \"json\" with\nnewlines\tand\rtabs",
-				null
-		);
-		Failure failure = Failure.builder(kind, "Parser.parse")
+				FailureType.TRANSIENT,
+				"Parser.parse"
+		)
 				.trackingId("parser\\test")
 				.build();
 
@@ -139,12 +139,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_handlesNullCorrelationId() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.builder(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
-				null
-		);
-		Failure failure = Failure.builder(kind, "test.operation")
+				FailureType.TRANSIENT,
+				"test.operation"
+		)
 				.correlationId(null)
 				.build();
 
@@ -157,12 +157,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_includesCorrelationIdWhenPresent() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.builder(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
-				null
-		);
-		Failure failure = Failure.builder(kind, "test.operation")
+				FailureType.TRANSIENT,
+				"test.operation"
+		)
 				.correlationId("trace-123")
 				.build();
 
@@ -175,12 +175,12 @@ class MetricsOpReporterTest {
 
 	@Test
 	void report_includesTags() {
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.builder(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
-				null
-		);
-		Failure failure = Failure.builder(kind, "test.operation")
+				FailureType.TRANSIENT,
+				"test.operation"
+		)
 				.tags(Map.of("service", "orders", "region", "us-east-1"))
 				.build();
 
@@ -194,32 +194,32 @@ class MetricsOpReporterTest {
 	}
 
 	@Test
-	void report_includesCategoryAndStability() {
-		// transientFailure creates RECOVERABLE/TRANSIENT by default
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+	void report_includesTypeAndNotification() {
+		// transientFailure creates TRANSIENT type which maps to OBSERVE notification
+		Failure failure = Failure.transientFailure(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
+				"test.operation",
 				null
 		);
-		Failure failure = Failure.builder(kind, "test.operation").build();
 
 		reporter.report(failure);
 
 		assertThat(capturedMessages).hasSize(1);
 		String json = capturedMessages.getFirst();
-		assertThat(json).contains("\"category\":\"RECOVERABLE\"");
-		assertThat(json).contains("\"stability\":\"TRANSIENT\"");
+		assertThat(json).contains("\"type\":\"TRANSIENT\"");
+		assertThat(json).contains("\"notification\":\"OBSERVE\"");
 	}
 
 	@Test
 	void report_includesTimestamp() {
 		Instant fixedTime = Instant.parse("2024-01-20T10:30:00Z");
-		FailureKind kind = FailureKind.transientFailure(
-				FailureCode.of("http", "timeout"),
+		Failure failure = Failure.builder(
+				FailureId.of("http", "timeout"),
 				"Connection timed out",
-				null
-		);
-		Failure failure = Failure.builder(kind, "test.operation")
+				FailureType.TRANSIENT,
+				"test.operation"
+		)
 				.occurredAt(fixedTime)
 				.build();
 
@@ -313,11 +313,10 @@ class MetricsOpReporterTest {
 
 	private Failure createFailure(String operation, String code, String message) {
 		String[] parts = code.split(":");
-		FailureCode failureCode = parts.length == 2
-				? FailureCode.of(parts[0], parts[1])
-				: FailureCode.of("unknown", code);
-		FailureKind kind = FailureKind.transientFailure(failureCode, message, null);
-		return Failure.of(kind, operation);
+		FailureId failureId = parts.length == 2
+				? FailureId.of(parts[0], parts[1])
+				: FailureId.of("unknown", code);
+		return Failure.transientFailure(failureId, message, operation, null);
 	}
 
 	/**
