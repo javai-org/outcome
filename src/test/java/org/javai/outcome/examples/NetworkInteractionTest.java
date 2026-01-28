@@ -37,12 +37,12 @@ public class NetworkInteractionTest {
             }
 
             @Override
-            public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
+            public void reportRetryAttempt(Failure failure, int attemptNumber) {
                 System.out.println("[RETRY] Attempt " + attemptNumber + " for " + failure.operation());
             }
 
             @Override
-            public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+            public void reportRetryExhausted(Failure failure, int totalAttempts) {
                 System.out.println("[EXHAUSTED] Gave up after " + totalAttempts + " attempts");
             }
         };
@@ -101,11 +101,11 @@ public class NetworkInteractionTest {
     @Test
     void networkCallWithRetry_succeedsOnThirdAttempt() {
         // Use zero delays for fast tests
-        Retrier retrier = retrierWith(RetryPolicy.fixed("api-retry", 5, Duration.ZERO));
+        Retrier retrier = retrierWith(RetryPolicy.fixed(5, Duration.ZERO));
 
         var attempts = new int[]{0};
 
-        Outcome<String> outcome = retrier.execute("UserApi.fetchUser", () ->
+        Outcome<String> outcome = retrier.execute(() ->
                 boundary.call("UserApi.fetchUser", () -> {
                     attempts[0]++;
                     if (attempts[0] < 3) {
@@ -122,9 +122,9 @@ public class NetworkInteractionTest {
 
     @Test
     void networkCallWithRetry_givesUpAfterMaxAttempts() {
-        Retrier retrier = retrierWith(RetryPolicy.fixed("api-retry", 3, Duration.ZERO));
+        Retrier retrier = retrierWith(RetryPolicy.fixed(3, Duration.ZERO));
 
-        Outcome<String> outcome = retrier.execute("UserApi.fetchUser", () ->
+        Outcome<String> outcome = retrier.execute(() ->
                 boundary.call("UserApi.fetchUser", () -> {
                     throw new HttpConnectTimeoutException("Always times out");
                 })
@@ -228,13 +228,12 @@ public class NetworkInteractionTest {
 
     @Test
     void convenienceMethod_retrierWithBoundary() {
-        Retrier retrier = retrierWith(RetryPolicy.fixed("simple", 2, Duration.ZERO));
+        Retrier retrier = retrierWith(RetryPolicy.fixed(2, Duration.ZERO));
 
         var attempts = new int[]{0};
 
         // Use the convenience method that combines Boundary + Retrier
         Outcome<String> outcome = retrier.execute(
-                "Api.call",
                 boundary,
                 () -> {
                     attempts[0]++;

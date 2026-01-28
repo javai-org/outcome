@@ -76,10 +76,10 @@ public final class CompositeOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber) {
 		for (OpReporter reporter : reporters) {
 			try {
-				reporter.reportRetryAttempt(failure, attemptNumber, policyId);
+				reporter.reportRetryAttempt(failure, attemptNumber);
 			} catch (Exception e) {
 				logReporterError("reportRetryAttempt", reporter, e);
 			}
@@ -87,10 +87,10 @@ public final class CompositeOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+	public void reportRetryExhausted(Failure failure, int totalAttempts) {
 		for (OpReporter reporter : reporters) {
 			try {
-				reporter.reportRetryExhausted(failure, totalAttempts, policyId);
+				reporter.reportRetryExhausted(failure, totalAttempts);
 			} catch (Exception e) {
 				logReporterError("reportRetryExhausted", reporter, e);
 			}

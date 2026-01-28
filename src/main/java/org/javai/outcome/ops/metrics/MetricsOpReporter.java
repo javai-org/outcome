@@ -84,9 +84,9 @@ public class MetricsOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber) {
 		try {
-			String json = buildRetryAttemptJson(failure, attemptNumber, policyId);
+			String json = buildRetryAttemptJson(failure, attemptNumber);
 			logger.info(json);
 		} catch (Exception e) {
 			// Reporting should not break the application
@@ -94,9 +94,9 @@ public class MetricsOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+	public void reportRetryExhausted(Failure failure, int totalAttempts) {
 		try {
-			String json = buildRetryExhaustedJson(failure, totalAttempts, policyId);
+			String json = buildRetryExhaustedJson(failure, totalAttempts);
 			logger.info(json);
 		} catch (Exception e) {
 			// Reporting should not break the application
@@ -122,14 +122,13 @@ public class MetricsOpReporter implements OpReporter {
 		return sb.toString();
 	}
 
-	private String buildRetryAttemptJson(Failure failure, int attemptNumber, String policyId) {
+	private String buildRetryAttemptJson(Failure failure, int attemptNumber) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("{");
 		appendField(sb, "eventType", "retry_attempt", true);
 		appendField(sb, "timestamp", ISO_FORMATTER.format(failure.occurredAt()), false);
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
 		appendField(sb, "attemptNumber", String.valueOf(attemptNumber), false);
-		appendField(sb, "policyId", policyId, false);
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
@@ -139,14 +138,13 @@ public class MetricsOpReporter implements OpReporter {
 		return sb.toString();
 	}
 
-	private String buildRetryExhaustedJson(Failure failure, int totalAttempts, String policyId) {
+	private String buildRetryExhaustedJson(Failure failure, int totalAttempts) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("{");
 		appendField(sb, "eventType", "retry_exhausted", true);
 		appendField(sb, "timestamp", ISO_FORMATTER.format(failure.occurredAt()), false);
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
 		appendField(sb, "totalAttempts", String.valueOf(totalAttempts), false);
-		appendField(sb, "policyId", policyId, false);
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {

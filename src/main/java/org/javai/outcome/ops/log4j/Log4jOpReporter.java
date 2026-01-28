@@ -66,23 +66,21 @@ public class Log4jOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber) {
 		logger.info(RETRY_MARKER,
-				"Retry attempt {} for operation [{}] with policy [{}]. Code: {}, Message: {}",
+				"Retry attempt {} for operation [{}]. Code: {}, Message: {}",
 				attemptNumber,
 				failure.operation(),
-				policyId,
 				failure.id(),
 				failure.message());
 	}
 
 	@Override
-	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+	public void reportRetryExhausted(Failure failure, int totalAttempts) {
 		logger.warn(RETRY_EXHAUSTED_MARKER,
-				"Retry exhausted for operation [{}] after {} attempts with policy [{}]. Code: {}, Message: {}",
+				"Retry exhausted for operation [{}] after {} attempts. Code: {}, Message: {}",
 				failure.operation(),
 				totalAttempts,
-				policyId,
 				failure.id(),
 				failure.message());
 	}

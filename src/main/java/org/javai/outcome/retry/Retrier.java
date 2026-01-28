@@ -20,7 +20,7 @@ import java.util.function.Supplier;
  * <p>Example usage:</p>
  * <pre>{@code
  * Retrier retrier = Retrier.builder()
- *     .policy(RetryPolicy.exponentialBackoff("api-call", 3, Duration.ofMillis(100), Duration.ofSeconds(5)))
+ *     .policy(RetryPolicy.exponentialBackoff(3, Duration.ofMillis(100), Duration.ofSeconds(5)))
  *     .reporter(reporter)
  *     .build();
  *
@@ -59,7 +59,7 @@ public final class Retrier {
      * <p>Example usage:</p>
      * <pre>{@code
      * Retrier retrier = Retrier.builder()
-     *     .policy(RetryPolicy.exponentialBackoff("api", 3, Duration.ofMillis(100), Duration.ofSeconds(5)))
+     *     .policy(RetryPolicy.exponentialBackoff(3, Duration.ofMillis(100), Duration.ofSeconds(5)))
      *     .reporter(customReporter)
      *     .budget(Duration.ofSeconds(30))
      *     .build();
@@ -129,12 +129,10 @@ public final class Retrier {
     /**
      * Executes an operation with retry according to the configured policy.
      *
-     * @param operation The operation name for reporting
      * @param attempt A supplier that returns an Outcome
      * @return The final Outcome after retries are exhausted or success
      */
-    public <T> Outcome<T> execute(String operation, Supplier<Outcome<T>> attempt) {
-        Objects.requireNonNull(operation, "operation must not be null");
+    public <T> Outcome<T> execute(Supplier<Outcome<T>> attempt) {
         Objects.requireNonNull(attempt, "attempt must not be null");
 
         RetryContext context = budget == null ? RetryContext.first() : RetryContext.first(budget);
@@ -144,12 +142,12 @@ public final class Retrier {
 			RetryDecision decision = policy.decide(context, failure);
 
             if (decision instanceof RetryDecision.GiveUp) {
-                reporter.reportRetryExhausted(failure, context.attemptNumber(), policy.id());
+                reporter.reportRetryExhausted(failure, context.attemptNumber());
                 return result;
             }
 
             if (decision instanceof RetryDecision.Retry(Duration delay)) {
-                reporter.reportRetryAttempt(failure, context.attemptNumber(), policy.id());
+                reporter.reportRetryAttempt(failure, context.attemptNumber());
                 sleep(delay);
                 context = context.next();
                 result = attempt.get();
@@ -161,13 +159,16 @@ public final class Retrier {
 
     /**
      * Convenience method that wraps a throwing supplier with a Boundary before retrying.
+     *
+     * @param boundary the boundary to use for exception handling
+     * @param work the work to execute
+     * @return the final Outcome after retries are exhausted or success
      */
     public <T> Outcome<T> execute(
-            String operation,
             Boundary boundary,
             ThrowingSupplier<T, ? extends Exception> work
     ) {
-        return execute(operation, () -> boundary.call(operation, work));
+        return execute(() -> boundary.call("retry", work));
     }
 
     private void sleep(Duration duration) {
@@ -224,9 +225,9 @@ public final class Retrier {
 
         Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = Retrier.builder()
-                .policy(RetryPolicy.exponentialBackoff("attempt", maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY))
+                .policy(RetryPolicy.exponentialBackoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY))
                 .build();
-        return retrier.execute("attempt", boundary, work);
+        return retrier.execute(boundary, work);
     }
 
     // === GUIDED RETRY BUILDER ===
@@ -323,7 +324,7 @@ public final class Retrier {
             public <T> WithAttempt<T> attempt(ThrowingSupplier<T, ? extends Exception> work) {
                 Objects.requireNonNull(work, "work must not be null");
                 RetryPolicy effectivePolicy = policy != null ? policy :
-                        RetryPolicy.exponentialBackoff("guided", maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
+                        RetryPolicy.exponentialBackoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
                 return new WithAttempt<>(effectivePolicy, reporter, work);
             }
         }
@@ -416,12 +417,12 @@ public final class Retrier {
                     RetryDecision decision = policy.decide(context, failure);
 
                     if (decision instanceof RetryDecision.GiveUp) {
-                        reporter.reportRetryExhausted(failure, context.attemptNumber(), policy.id());
+                        reporter.reportRetryExhausted(failure, context.attemptNumber());
                         return result;
                     }
 
                     if (decision instanceof RetryDecision.Retry retry) {
-                        reporter.reportRetryAttempt(failure, context.attemptNumber(), policy.id());
+                        reporter.reportRetryAttempt(failure, context.attemptNumber());
                         sleep(retry.delay());
                         context = context.next();
 

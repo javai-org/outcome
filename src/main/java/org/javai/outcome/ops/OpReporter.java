@@ -18,9 +18,8 @@ public interface OpReporter {
      *
      * @param failure The failure that triggered the retry
      * @param attemptNumber The current attempt number (1-based)
-     * @param policyId The retry policy being applied
      */
-    default void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
+    default void reportRetryAttempt(Failure failure, int attemptNumber) {
         // Default: no-op. Implementations may override.
     }
 
@@ -29,9 +28,8 @@ public interface OpReporter {
      *
      * @param failure The final failure
      * @param totalAttempts The total number of attempts made
-     * @param policyId The retry policy that was exhausted
      */
-    default void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+    default void reportRetryExhausted(Failure failure, int totalAttempts) {
         // Default: no-op. Implementations may override.
     }
 

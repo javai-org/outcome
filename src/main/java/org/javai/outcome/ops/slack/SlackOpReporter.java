@@ -126,12 +126,12 @@ public class SlackOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-		String message = buildRetryAttemptMessage(failure, attemptNumber, policyId);
+	public void reportRetryAttempt(Failure failure, int attemptNumber) {
+		String message = buildRetryAttemptMessage(failure, attemptNumber);
 		sendMessage(message);
 	}
 
-	private String buildRetryAttemptMessage(Failure failure, int attemptNumber, String policyId) {
+	private String buildRetryAttemptMessage(Failure failure, int attemptNumber) {
 		return """
 			{
 				"channel": "%s",
@@ -142,7 +142,7 @@ public class SlackOpReporter implements OpReporter {
 							"type": "section",
 							"text": {
 								"type": "mrkdwn",
-								"text": ":repeat: *Retry Attempt %d* for `%s`\\nPolicy: `%s` | Code: `%s`"
+								"text": ":repeat: *Retry Attempt %d* for `%s`\\nCode: `%s`"
 							}
 						}
 					]
@@ -152,18 +152,17 @@ public class SlackOpReporter implements OpReporter {
 				escapeJson(channel),
 				attemptNumber,
 				escapeJson(failure.operation()),
-				escapeJson(policyId),
 				escapeJson(failure.id().toString())
 			);
 	}
 
 	@Override
-	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
-		String message = buildRetryExhaustedMessage(failure, totalAttempts, policyId);
+	public void reportRetryExhausted(Failure failure, int totalAttempts) {
+		String message = buildRetryExhaustedMessage(failure, totalAttempts);
 		sendMessage(message);
 	}
 
-	private String buildRetryExhaustedMessage(Failure failure, int totalAttempts, String policyId) {
+	private String buildRetryExhaustedMessage(Failure failure, int totalAttempts) {
 		return """
 			{
 				"channel": "%s",
@@ -183,7 +182,6 @@ public class SlackOpReporter implements OpReporter {
 							"fields": [
 								{"type": "mrkdwn", "text": "*Operation:*\\n%s"},
 								{"type": "mrkdwn", "text": "*Total Attempts:*\\n%d"},
-								{"type": "mrkdwn", "text": "*Policy:*\\n%s"},
 								{"type": "mrkdwn", "text": "*Final Error:*\\n%s"}
 							]
 						}
@@ -194,7 +192,6 @@ public class SlackOpReporter implements OpReporter {
 				escapeJson(channel),
 				escapeJson(failure.operation()),
 				totalAttempts,
-				escapeJson(policyId),
 				escapeJson(failure.id().toString())
 			);
 	}

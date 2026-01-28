@@ -19,8 +19,8 @@ class RetrierTest {
     private List<RetryExhausted> reportedExhausted;
     private OpReporter reporter;
 
-    record RetryAttempt(Failure failure, int attemptNumber, String policyId) {}
-    record RetryExhausted(Failure failure, int totalAttempts, String policyId) {}
+    record RetryAttempt(Failure failure, int attemptNumber) {}
+    record RetryExhausted(Failure failure, int totalAttempts) {}
 
     @BeforeEach
     void setUp() {
@@ -35,13 +35,13 @@ class RetrierTest {
             }
 
             @Override
-            public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-                reportedRetries.add(new RetryAttempt(failure, attemptNumber, policyId));
+            public void reportRetryAttempt(Failure failure, int attemptNumber) {
+                reportedRetries.add(new RetryAttempt(failure, attemptNumber));
             }
 
             @Override
-            public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
-                reportedExhausted.add(new RetryExhausted(failure, totalAttempts, policyId));
+            public void reportRetryExhausted(Failure failure, int totalAttempts) {
+                reportedExhausted.add(new RetryExhausted(failure, totalAttempts));
             }
         };
     }
@@ -56,10 +56,10 @@ class RetrierTest {
 
     @Test
     void execute_immediate_success_returnsOk() {
-        RetryPolicy policy = RetryPolicy.immediate("test", 3);
+        RetryPolicy policy = RetryPolicy.immediate(3);
         Retrier retrier = retrierWith(policy);
 
-        Outcome<String> result = retrier.execute("Op", () -> Outcome.ok("success"));
+        Outcome<String> result = retrier.execute( () -> Outcome.ok("success"));
 
         assertThat(result.isOk()).isTrue();
         assertThat(result.getOrThrow()).isEqualTo("success");
@@ -68,10 +68,10 @@ class RetrierTest {
 
     @Test
     void execute_success_returnsOk() {
-        RetryPolicy policy = RetryPolicy.fixed("test", 3, Duration.ofMillis(10));
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(10));
         Retrier retrier = retrierWith(policy);
 
-        Outcome<String> result = retrier.execute("Op", () -> Outcome.ok("success"));
+        Outcome<String> result = retrier.execute( () -> Outcome.ok("success"));
 
         assertThat(result.isOk()).isTrue();
         assertThat(result.getOrThrow()).isEqualTo("success");
@@ -80,11 +80,11 @@ class RetrierTest {
 
     @Test
     void execute_retriesOnTransientFailure() {
-        RetryPolicy policy = RetryPolicy.fixed("test", 3, Duration.ofMillis(10));
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(10));
         Retrier retrier = retrierWith(policy);
         AtomicInteger attempts = new AtomicInteger(0);
 
-        Outcome<String> result = retrier.execute("Op", () -> {
+        Outcome<String> result = retrier.execute( () -> {
             if (attempts.incrementAndGet() < 3) {
                 return Outcome.fail(createTransientFailure("attempt " + attempts.get()));
             }
@@ -99,10 +99,10 @@ class RetrierTest {
 
     @Test
     void execute_givesUpAfterMaxAttempts() {
-        RetryPolicy policy = RetryPolicy.fixed("test", 3, Duration.ofMillis(10));
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(10));
         Retrier retrier = retrierWith(policy);
 
-        Outcome<String> result = retrier.execute("Op",
+        Outcome<String> result = retrier.execute(
                 () -> Outcome.fail(createTransientFailure("always fails")));
 
         assertThat(result.isFail()).isTrue();
@@ -113,11 +113,11 @@ class RetrierTest {
 
     @Test
     void execute_doesNotRetryPermanentFailure() {
-        RetryPolicy policy = RetryPolicy.fixed("test", 3, Duration.ofMillis(10));
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(10));
         Retrier retrier = retrierWith(policy);
         AtomicInteger attempts = new AtomicInteger(0);
 
-        Outcome<String> result = retrier.execute("Op", () -> {
+        Outcome<String> result = retrier.execute( () -> {
             attempts.incrementAndGet();
             return Outcome.fail(createPermanentFailure("not retryable"));
         });
@@ -133,7 +133,7 @@ class RetrierTest {
         Retrier retrier = retrierWith(RetryPolicy.noRetry());
         AtomicInteger attempts = new AtomicInteger(0);
 
-        Outcome<String> result = retrier.execute("Op", () -> {
+        Outcome<String> result = retrier.execute( () -> {
             attempts.incrementAndGet();
             return Outcome.fail(createTransientFailure("failure"));
         });
@@ -146,7 +146,7 @@ class RetrierTest {
     void execute_exponentialBackoff_calculatesDelays() {
         List<Long> sleepTimes = new ArrayList<>();
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
-                "exp-backoff", 4, Duration.ofMillis(100), Duration.ofSeconds(1)
+                4, Duration.ofMillis(100), Duration.ofSeconds(1)
         );
         Retrier retrier = Retrier.builder()
                 .policy(policy)
@@ -154,7 +154,7 @@ class RetrierTest {
                 .build();
 
         AtomicInteger attempts = new AtomicInteger(0);
-        retrier.execute("Op", () -> {
+        retrier.execute( () -> {
             if (attempts.incrementAndGet() < 4) {
                 return Outcome.fail(createTransientFailure("retry"));
             }
@@ -168,7 +168,7 @@ class RetrierTest {
     void execute_exponentialBackoff_capsAtMaxDelay() {
         List<Long> sleepTimes = new ArrayList<>();
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
-                "exp-backoff", 5, Duration.ofMillis(100), Duration.ofMillis(300)
+                5, Duration.ofMillis(100), Duration.ofMillis(300)
         );
         Retrier retrier = Retrier.builder()
                 .policy(policy)
@@ -176,7 +176,7 @@ class RetrierTest {
                 .build();
 
         AtomicInteger attempts = new AtomicInteger(0);
-        retrier.execute("Op", () -> {
+        retrier.execute( () -> {
             if (attempts.incrementAndGet() < 5) {
                 return Outcome.fail(createTransientFailure("retry"));
             }
@@ -191,7 +191,7 @@ class RetrierTest {
     void execute_respectsFailureMinDelay() {
         List<Long> sleepTimes = new ArrayList<>();
         RetryPolicy policy = RetryPolicy.exponentialBackoff(
-                "exp-backoff", 3, Duration.ofMillis(100), Duration.ofSeconds(1)
+                3, Duration.ofMillis(100), Duration.ofSeconds(1)
         );
         Retrier retrier = Retrier.builder()
                 .policy(policy)
@@ -199,7 +199,7 @@ class RetrierTest {
                 .build();
 
         AtomicInteger attempts = new AtomicInteger(0);
-        retrier.execute("Op", () -> {
+        retrier.execute( () -> {
             if (attempts.incrementAndGet() < 3) {
                 // Failure with retryAfter hint greater than calculated delay
                 return Outcome.fail(createTransientFailureWithRetryAfter("retry", Duration.ofMillis(500)));
@@ -298,18 +298,18 @@ class RetrierTest {
             }
 
             @Override
-            public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
+            public void reportRetryExhausted(Failure failure, int totalAttempts) {
                 reported.add(failure);
             }
         };
 
         Retrier retrier = Retrier.builder()
-                .policy(RetryPolicy.fixed("test", 1, Duration.ofMillis(1)))
+                .policy(RetryPolicy.fixed(1, Duration.ofMillis(1)))
                 .reporter(customReporter)
                 .sleeper(millis -> {})
                 .build();
 
-        retrier.execute("Op", () -> Outcome.fail(createTransientFailure("error")));
+        retrier.execute( () -> Outcome.fail(createTransientFailure("error")));
 
         assertThat(reported).hasSize(1);
     }
@@ -317,7 +317,7 @@ class RetrierTest {
     @Test
     void builder_allowsBudget() {
         Retrier retrier = Retrier.builder()
-                .policy(RetryPolicy.fixed("test", 100, Duration.ofMillis(1)))
+                .policy(RetryPolicy.fixed(100, Duration.ofMillis(1)))
                 .budget(Duration.ofMillis(10))
                 .sleeper(millis -> {
                     try {
@@ -329,7 +329,7 @@ class RetrierTest {
                 .build();
 
         AtomicInteger attempts = new AtomicInteger(0);
-        Outcome<String> result = retrier.execute("Op", () -> {
+        Outcome<String> result = retrier.execute( () -> {
             attempts.incrementAndGet();
             return Outcome.fail(createTransientFailure("always fails"));
         });
@@ -438,15 +438,15 @@ class RetrierTest {
             }
 
             @Override
-            public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-                retryEvents.add("retry:" + policyId + ":" + attemptNumber);
+            public void reportRetryAttempt(Failure failure, int attemptNumber) {
+                retryEvents.add("retry:" + attemptNumber);
             }
         };
 
         AtomicInteger reattempts = new AtomicInteger(0);
 
         Outcome<String> result = Retrier.withGuidance(3)
-                .policy(RetryPolicy.fixed("custom-policy", 3, Duration.ZERO))
+                .policy(RetryPolicy.fixed(3, Duration.ZERO))
                 .reporter(customReporter)
                 .<String>attempt(() -> {
                     throw new Exception("first attempt failed");
@@ -461,7 +461,7 @@ class RetrierTest {
                 .execute();
 
         assertThat(result.isOk()).isTrue();
-        // Custom reporter was called with the custom policy ID
-        assertThat(retryEvents).contains("retry:custom-policy:1", "retry:custom-policy:2");
+        // Custom reporter was called
+        assertThat(retryEvents).contains("retry:1", "retry:2");
     }
 }

@@ -107,12 +107,12 @@ public class TeamsOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber, String policyId) {
-		String message = buildRetryAttemptMessage(failure, attemptNumber, policyId);
+	public void reportRetryAttempt(Failure failure, int attemptNumber) {
+		String message = buildRetryAttemptMessage(failure, attemptNumber);
 		sendMessage(message);
 	}
 
-	private String buildRetryAttemptMessage(Failure failure, int attemptNumber, String policyId) {
+	private String buildRetryAttemptMessage(Failure failure, int attemptNumber) {
 		return """
 			{
 				"@type": "MessageCard",
@@ -123,7 +123,6 @@ public class TeamsOpReporter implements OpReporter {
 					"activityTitle": "🔄 Retry Attempt %d",
 					"facts": [
 						{"name": "Operation", "value": "%s"},
-						{"name": "Policy", "value": "%s"},
 						{"name": "Code", "value": "%s"}
 					],
 					"markdown": true
@@ -133,18 +132,17 @@ public class TeamsOpReporter implements OpReporter {
 				attemptNumber,
 				attemptNumber,
 				escapeJson(failure.operation()),
-				escapeJson(policyId),
 				escapeJson(failure.id().toString())
 			);
 	}
 
 	@Override
-	public void reportRetryExhausted(Failure failure, int totalAttempts, String policyId) {
-		String message = buildRetryExhaustedMessage(failure, totalAttempts, policyId);
+	public void reportRetryExhausted(Failure failure, int totalAttempts) {
+		String message = buildRetryExhaustedMessage(failure, totalAttempts);
 		sendMessage(message);
 	}
 
-	private String buildRetryExhaustedMessage(Failure failure, int totalAttempts, String policyId) {
+	private String buildRetryExhaustedMessage(Failure failure, int totalAttempts) {
 		return """
 			{
 				"@type": "MessageCard",
@@ -156,7 +154,6 @@ public class TeamsOpReporter implements OpReporter {
 					"facts": [
 						{"name": "Operation", "value": "%s"},
 						{"name": "Total Attempts", "value": "%d"},
-						{"name": "Policy", "value": "%s"},
 						{"name": "Final Error", "value": "%s"}
 					],
 					"markdown": true
@@ -165,7 +162,6 @@ public class TeamsOpReporter implements OpReporter {
 			""".formatted(
 				escapeJson(failure.operation()),
 				totalAttempts,
-				escapeJson(policyId),
 				escapeJson(failure.id().toString())
 			);
 	}

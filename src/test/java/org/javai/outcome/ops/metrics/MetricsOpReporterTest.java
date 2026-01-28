@@ -234,13 +234,12 @@ class MetricsOpReporterTest {
 	void reportRetryAttempt_emitsRetryAttemptEvent() {
 		Failure failure = createFailure("test.operation", "http:timeout", "Connection timed out");
 
-		reporter.reportRetryAttempt(failure, 3, "exponential-backoff");
+		reporter.reportRetryAttempt(failure, 3);
 
 		assertThat(capturedMessages).hasSize(1);
 		String json = capturedMessages.getFirst();
 		assertThat(json).contains("\"eventType\":\"retry_attempt\"");
 		assertThat(json).contains("\"attemptNumber\":\"3\"");
-		assertThat(json).contains("\"policyId\":\"exponential-backoff\"");
 		assertThat(json).contains("\"trackingKey\":\"test.operation\"");
 	}
 
@@ -248,13 +247,12 @@ class MetricsOpReporterTest {
 	void reportRetryExhausted_emitsRetryExhaustedEvent() {
 		Failure failure = createFailure("test.operation", "http:timeout", "Connection timed out");
 
-		reporter.reportRetryExhausted(failure, 5, "exponential-backoff");
+		reporter.reportRetryExhausted(failure, 5);
 
 		assertThat(capturedMessages).hasSize(1);
 		String json = capturedMessages.getFirst();
 		assertThat(json).contains("\"eventType\":\"retry_exhausted\"");
 		assertThat(json).contains("\"totalAttempts\":\"5\"");
-		assertThat(json).contains("\"policyId\":\"exponential-backoff\"");
 		assertThat(json).contains("\"trackingKey\":\"test.operation\"");
 	}
 
