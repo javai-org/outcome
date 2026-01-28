@@ -43,6 +43,13 @@ public interface RetryPolicy {
     }
 
     /**
+     * Creates a simple policy with zero delay and max attempts.
+     */
+    static RetryPolicy immediate(String id, int maxAttempts) {
+        return fixed(id, maxAttempts, Duration.ZERO);
+    }
+
+    /**
      * Creates a simple policy with fixed delay and max attempts.
      */
     static RetryPolicy fixed(String id, int maxAttempts, Duration delay) {
