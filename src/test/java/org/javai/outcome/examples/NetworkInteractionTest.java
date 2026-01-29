@@ -43,26 +43,43 @@ public class NetworkInteractionTest {
 
 	@Test
 	void retrierAutomaticallyRetriesTransientFailures() {
+		// Simulate a flaky API: fails twice, then succeeds
+		FlakyApi api = new FlakyApi(2, "{\"name\": \"Alice\"}");
+
 		Retrier retrier = Retrier.builder()
-				.policy(RetryPolicy.fixed(5, Duration.ZERO))  // Up to 5 attempts, no delay
+				.policy(RetryPolicy.fixed(5, Duration.ZERO))
 				.build();
 
-		var attempts = new int[]{0};
-
-		// Retrier wraps an Outcome-returning operation and retries on transient failures
 		Outcome<String> outcome = retrier.execute(() ->
-				boundary.call("UserApi.fetch", () -> {
-					attempts[0]++;
-					if (attempts[0] < 3) {
-						throw new HttpConnectTimeoutException("Timeout on attempt " + attempts[0]);
-					}
-					return "{\"name\": \"Alice\"}";
-				})
+				boundary.call("UserApi.fetch", api::fetch)
 		);
 
-		// Succeeds on third attempt
 		assertThat(outcome.isOk()).isTrue();
 		assertThat(outcome.getOrThrow()).contains("Alice");
-		assertThat(attempts[0]).isEqualTo(3);
+		assertThat(api.callCount()).isEqualTo(3);  // 2 failures + 1 success
+	}
+
+	/** Simulates a service that fails N times before succeeding. */
+	private static class FlakyApi {
+		private final int failuresBeforeSuccess;
+		private final String successResponse;
+		private int calls = 0;
+
+		FlakyApi(int failuresBeforeSuccess, String successResponse) {
+			this.failuresBeforeSuccess = failuresBeforeSuccess;
+			this.successResponse = successResponse;
+		}
+
+		String fetch() throws HttpConnectTimeoutException {
+			calls++;
+			if (calls <= failuresBeforeSuccess) {
+				throw new HttpConnectTimeoutException("Timeout on call " + calls);
+			}
+			return successResponse;
+		}
+
+		int callCount() {
+			return calls;
+		}
 	}
 }
