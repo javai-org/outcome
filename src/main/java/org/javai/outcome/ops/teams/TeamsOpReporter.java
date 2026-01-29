@@ -168,23 +168,23 @@ public class TeamsOpReporter implements OpReporter {
 	}
 
 	private void sendMessage(String jsonBody) {
-		try {
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(webhookUrl))
-					.header("Content-Type", "application/json; charset=utf-8")
-					.timeout(TIMEOUT)
-					.POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-					.build();
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(webhookUrl))
+				.header("Content-Type", "application/json; charset=utf-8")
+				.timeout(TIMEOUT)
+				.POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+				.build();
 
-			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-			if (response.statusCode() != 200) {
-				System.err.println("Teams webhook returned status " + response.statusCode() + ": " + response.body());
-			}
-		} catch (Exception e) {
-			// Log but don't throw - reporting should not break the application
-			System.err.println("Failed to send Teams notification: " + e.getMessage());
-		}
+		httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+				.thenAccept(response -> {
+					if (response.statusCode() != 200) {
+						System.err.println("Teams webhook returned status " + response.statusCode() + ": " + response.body());
+					}
+				})
+				.exceptionally(e -> {
+					System.err.println("Failed to send Teams notification: " + e.getMessage());
+					return null;
+				});
 	}
 
 	private static String resolveConfig(String sysProp, String envVar) {
