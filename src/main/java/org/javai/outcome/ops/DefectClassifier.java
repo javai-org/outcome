@@ -4,6 +4,8 @@ import org.javai.outcome.Failure;
 import org.javai.outcome.FailureId;
 import org.javai.outcome.boundary.FailureClassifier;
 
+import java.util.List;
+
 /**
  * Classifies uncaught exceptions (defects) for use with {@link OperationalExceptionHandler}.
  *
@@ -19,37 +21,25 @@ import org.javai.outcome.boundary.FailureClassifier;
  */
 public class DefectClassifier implements FailureClassifier {
 
+    private record DefectMapping(Class<? extends Throwable> type, String code, String prefix) {}
+
+    private static final List<DefectMapping> MAPPINGS = List.of(
+            new DefectMapping(NullPointerException.class, "null_pointer", "Null pointer"),
+            new DefectMapping(IllegalArgumentException.class, "illegal_argument", "Illegal argument"),
+            new DefectMapping(IllegalStateException.class, "illegal_state", "Illegal state"),
+            new DefectMapping(UnsupportedOperationException.class, "unsupported_operation", "Unsupported operation"),
+            new DefectMapping(IndexOutOfBoundsException.class, "index_out_of_bounds", "Index out of bounds"),
+            new DefectMapping(ClassCastException.class, "class_cast", "Class cast error"),
+            new DefectMapping(ArithmeticException.class, "arithmetic", "Arithmetic error")
+    );
+
     @Override
     public Failure classify(String operation, Throwable t) {
-        if (t instanceof NullPointerException) {
-            return defect("null_pointer", "Null pointer", operation, t);
+        for (DefectMapping mapping : MAPPINGS) {
+            if (mapping.type().isInstance(t)) {
+                return defect(mapping.code(), mapping.prefix(), operation, t);
+            }
         }
-
-        if (t instanceof IllegalArgumentException) {
-            return defect("illegal_argument", "Illegal argument", operation, t);
-        }
-
-        if (t instanceof IllegalStateException) {
-            return defect("illegal_state", "Illegal state", operation, t);
-        }
-
-        if (t instanceof UnsupportedOperationException) {
-            return defect("unsupported_operation", "Unsupported operation", operation, t);
-        }
-
-        if (t instanceof IndexOutOfBoundsException) {
-            return defect("index_out_of_bounds", "Index out of bounds", operation, t);
-        }
-
-        if (t instanceof ClassCastException) {
-            return defect("class_cast", "Class cast error", operation, t);
-        }
-
-        if (t instanceof ArithmeticException) {
-            return defect("arithmetic", "Arithmetic error", operation, t);
-        }
-
-        // Fallback for any other uncaught exception
         return classifyUnknownDefect(operation, t);
     }
 
