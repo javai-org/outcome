@@ -1,18 +1,20 @@
 package org.javai.outcome.ops.metrics;
 
-import org.javai.outcome.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.Marker;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
+import org.javai.outcome.ops.OpReporterUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.Marker;
 
 class MetricsOpReporterTest {
 
@@ -291,22 +293,22 @@ class MetricsOpReporterTest {
 
 	@Test
 	void escapeJson_handlesAllSpecialCharacters() {
-		assertThat(MetricsOpReporter.escapeJson("hello\\world")).isEqualTo("hello\\\\world");
-		assertThat(MetricsOpReporter.escapeJson("hello\"world")).isEqualTo("hello\\\"world");
-		assertThat(MetricsOpReporter.escapeJson("hello\nworld")).isEqualTo("hello\\nworld");
-		assertThat(MetricsOpReporter.escapeJson("hello\rworld")).isEqualTo("hello\\rworld");
-		assertThat(MetricsOpReporter.escapeJson("hello\tworld")).isEqualTo("hello\\tworld");
+		assertThat(OpReporterUtils.escapeJson("hello\\world")).isEqualTo("hello\\\\world");
+		assertThat(OpReporterUtils.escapeJson("hello\"world")).isEqualTo("hello\\\"world");
+		assertThat(OpReporterUtils.escapeJson("hello\nworld")).isEqualTo("hello\\nworld");
+		assertThat(OpReporterUtils.escapeJson("hello\rworld")).isEqualTo("hello\\rworld");
+		assertThat(OpReporterUtils.escapeJson("hello\tworld")).isEqualTo("hello\\tworld");
 	}
 
 	@Test
 	void escapeJson_handlesNull() {
-		assertThat(MetricsOpReporter.escapeJson(null)).isEqualTo("");
+		assertThat(OpReporterUtils.escapeJson(null)).isEqualTo("");
 	}
 
 	@Test
 	void constructors_defaultLoggerName() {
 		// Verify constructors don't throw
-		assertThatCode(() -> new MetricsOpReporter()).doesNotThrowAnyException();
+		assertThatCode(MetricsOpReporter::new).doesNotThrowAnyException();
 		assertThatCode(() -> new MetricsOpReporter("myapp")).doesNotThrowAnyException();
 		assertThatCode(() -> new MetricsOpReporter("myapp", "custom.logger")).doesNotThrowAnyException();
 	}

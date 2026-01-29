@@ -1,7 +1,9 @@
 package org.javai.outcome.ops.metrics;
 
+import static org.javai.outcome.ops.OpReporterUtils.escapeJson;
 import org.javai.outcome.Failure;
 import org.javai.outcome.ops.OpReporter;
+import org.javai.outcome.ops.OpReporterUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,12 +66,12 @@ public class MetricsOpReporter implements OpReporter {
 
 	/**
 	 * Creates a MetricsOpReporter with explicit configuration.
-	 * Package-private for testing.
+	 * Useful for testing with a custom logger.
 	 *
 	 * @param namespace the namespace to prepend to tracking keys (may be null or empty)
 	 * @param logger the SLF4J logger to use
 	 */
-	MetricsOpReporter(String namespace, Logger logger) {
+	public MetricsOpReporter(String namespace, Logger logger) {
 		this.namespace = normalizeNamespace(namespace);
 		this.logger = logger;
 	}
@@ -194,14 +196,4 @@ public class MetricsOpReporter implements OpReporter {
 		return namespace.trim();
 	}
 
-	static String escapeJson(String s) {
-		if (s == null) {
-			return "";
-		}
-		return s.replace("\\", "\\\\")
-				.replace("\"", "\\\"")
-				.replace("\n", "\\n")
-				.replace("\r", "\\r")
-				.replace("\t", "\\t");
-	}
 }

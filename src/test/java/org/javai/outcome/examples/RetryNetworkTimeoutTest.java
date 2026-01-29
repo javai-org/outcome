@@ -2,6 +2,7 @@ package org.javai.outcome.examples;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import java.net.http.HttpConnectTimeoutException;
+import org.javai.outcome.Failure;
 import org.javai.outcome.FailureType;
 import org.javai.outcome.Outcome;
 import org.javai.outcome.boundary.Boundary;
