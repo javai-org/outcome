@@ -15,7 +15,12 @@
       "Bash(gh pr merge:*)",
       "Bash(git pull:*)",
       "Bash(git merge:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(./gradlew compileJava compileTestJava:*)",
+      "Bash(git mv:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(./gradlew clean test:*)",
+      "Bash(find:*)"
     ]
   }
 }

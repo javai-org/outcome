@@ -1,18 +1,19 @@
 package org.javai.outcome.ops;
 
-import org.javai.outcome.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
+class DefaultDefectClassifierTest {
 
-class DefectClassifierTest {
-
-    private DefectClassifier classifier;
+    private DefaultDefectClassifier classifier;
 
     @BeforeEach
     void setUp() {
-        classifier = new DefectClassifier();
+        classifier = new DefaultDefectClassifier();
     }
 
     @Test

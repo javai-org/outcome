@@ -1,13 +1,11 @@
 package org.javai.outcome.examples;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import java.net.http.HttpConnectTimeoutException;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.javai.outcome.Failure;
 import org.javai.outcome.Outcome;
 import org.javai.outcome.boundary.Boundary;
@@ -32,7 +30,7 @@ public class OperatorReportingTest {
 		// Collect messages for assertions while also printing to stderr
 		List<String> messages = new ArrayList<>();
 
-		// Set up a reporter that writes failure details to stderr
+		// Set up a custom reporter that writes failure details to stderr
 		OpReporter reporter = new OpReporter() {
 			@Override
 			public void report(Failure failure) {

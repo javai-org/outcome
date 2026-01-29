@@ -1,10 +1,9 @@
 package org.javai.outcome.ops;
 
+import java.util.List;
 import org.javai.outcome.Failure;
 import org.javai.outcome.FailureId;
 import org.javai.outcome.boundary.FailureClassifier;
-
-import java.util.List;
 
 /**
  * Classifies uncaught exceptions (defects) for use with {@link OperationalExceptionHandler}.
@@ -19,7 +18,7 @@ import java.util.List;
  * <p>This classifier should not be used for checked exceptions. Use {@link
  * org.javai.outcome.boundary.BoundaryFailureClassifier} for Boundary exception handling.
  */
-public class DefectClassifier implements FailureClassifier {
+public class DefaultDefectClassifier implements FailureClassifier {
 
     private record DefectMapping(Class<? extends Throwable> type, String code, String prefix) {}
 
@@ -35,12 +34,11 @@ public class DefectClassifier implements FailureClassifier {
 
     @Override
     public Failure classify(String operation, Throwable t) {
-        for (DefectMapping mapping : MAPPINGS) {
-            if (mapping.type().isInstance(t)) {
-                return defect(mapping.code(), mapping.prefix(), operation, t);
-            }
-        }
-        return classifyUnknownDefect(operation, t);
+        return MAPPINGS.stream()
+                .filter(m -> m.type().isInstance(t))
+                .map(m -> defect(m.code(), m.prefix(), operation, t))
+                .findFirst()
+                .orElseGet(() -> classifyUnknownDefect(operation, t));
     }
 
     private static Failure defect(String code, String prefix, String operation, Throwable t) {

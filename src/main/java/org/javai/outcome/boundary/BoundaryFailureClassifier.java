@@ -1,9 +1,5 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.Failure;
-import org.javai.outcome.FailureId;
-import org.javai.outcome.FailureType;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
@@ -16,6 +12,9 @@ import java.sql.SQLException;
 import java.sql.SQLTransientException;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.ops.DefaultDefectClassifier;
 
 /**
  * Classifies checked exceptions into recoverable failures for use with {@link Boundary}.
@@ -29,7 +28,7 @@ import java.util.concurrent.TimeoutException;
  * application can handle via retry, fallback, or graceful degradation.
  *
  * <p>This classifier should not be used for RuntimeExceptions. Use {@link
- * org.javai.outcome.ops.DefectClassifier} for uncaught exception handling.
+ * DefaultDefectClassifier} for uncaught exception handling.
  */
 public class BoundaryFailureClassifier implements FailureClassifier {
 

@@ -1,17 +1,18 @@
 package org.javai.outcome.ops;
 
-import org.javai.outcome.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.*;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
+import org.javai.outcome.NotificationIntent;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class OperationalExceptionHandlerTest {
 
@@ -22,7 +23,7 @@ class OperationalExceptionHandlerTest {
     void setUp() {
         reportedFailures = new ArrayList<>();
         handler = new OperationalExceptionHandler(
-                new DefectClassifier(),
+                new DefaultDefectClassifier(),
                 reportedFailures::add
         );
     }
@@ -74,7 +75,7 @@ class OperationalExceptionHandlerTest {
     @Test
     void uncaughtException_withCorrelationId() {
         OperationalExceptionHandler handlerWithCorrelation = new OperationalExceptionHandler(
-                new DefectClassifier(),
+                new DefaultDefectClassifier(),
                 reportedFailures::add,
                 () -> "correlation-xyz"
         );

@@ -1,13 +1,11 @@
 package org.javai.outcome.examples;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import org.javai.outcome.Failure;
 import org.javai.outcome.FailureType;
-import org.javai.outcome.ops.DefectClassifier;
+import org.javai.outcome.ops.DefaultDefectClassifier;
 import org.javai.outcome.ops.OperationalExceptionHandler;
 import org.junit.jupiter.api.Test;
 
@@ -31,9 +29,9 @@ public class UncaughtExceptionHandlingTest {
 		// Collect reported failures for assertions
 		List<Failure> reported = new ArrayList<>();
 
-		// Set up handler with DefectClassifier (classifies all exceptions as DEFECT)
+		// Set up handler with DefaultDefectClassifier (classifies all exceptions as DEFECT)
 		OperationalExceptionHandler handler = new OperationalExceptionHandler(
-				new DefectClassifier(),
+				new DefaultDefectClassifier(),
 				reported::add
 		);
 
@@ -63,7 +61,7 @@ public class UncaughtExceptionHandlingTest {
 		List<Failure> reported = new ArrayList<>();
 
 		OperationalExceptionHandler handler = new OperationalExceptionHandler(
-				new DefectClassifier(),
+				new DefaultDefectClassifier(),
 				reported::add
 		);
 
