@@ -35,7 +35,7 @@ public class CompositeReporterTest {
 
 		// Reporter 2: Collect failures for assertions (or metrics, alerts, etc.)
 		List<Failure> collectedFailures = new ArrayList<>();
-		OpReporter collectingReporter = failure -> collectedFailures.add(failure);
+		OpReporter collectingReporter = collectedFailures::add;
 
 		// Combine reporters - both receive all notifications
 		OpReporter compositeReporter = OpReporter.composite(logReporter, collectingReporter);
