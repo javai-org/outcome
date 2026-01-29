@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -234,12 +235,13 @@ class MetricsOpReporterTest {
 	void reportRetryAttempt_emitsRetryAttemptEvent() {
 		Failure failure = createFailure("test.operation", "http:timeout", "Connection timed out");
 
-		reporter.reportRetryAttempt(failure, 3);
+		reporter.reportRetryAttempt(failure, 3, Duration.ofMillis(500));
 
 		assertThat(capturedMessages).hasSize(1);
 		String json = capturedMessages.getFirst();
 		assertThat(json).contains("\"eventType\":\"retry_attempt\"");
 		assertThat(json).contains("\"attemptNumber\":\"3\"");
+		assertThat(json).contains("\"delayMs\":\"500\"");
 		assertThat(json).contains("\"trackingKey\":\"test.operation\"");
 	}
 

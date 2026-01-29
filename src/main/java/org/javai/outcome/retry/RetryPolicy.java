@@ -60,7 +60,7 @@ public interface RetryPolicy {
     /**
      * Creates a policy with exponential backoff.
      */
-    static RetryPolicy exponentialBackoff(int maxAttempts, Duration initialDelay, Duration maxDelay) {
+    static RetryPolicy backoff(int maxAttempts, Duration initialDelay, Duration maxDelay) {
         Objects.requireNonNull(initialDelay);
         Objects.requireNonNull(maxDelay);
         if (maxAttempts < 1) {

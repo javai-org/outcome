@@ -107,12 +107,12 @@ public class TeamsOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber) {
-		String message = buildRetryAttemptMessage(failure, attemptNumber);
+	public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
+		String message = buildRetryAttemptMessage(failure, attemptNumber, delay);
 		sendMessage(message);
 	}
 
-	private String buildRetryAttemptMessage(Failure failure, int attemptNumber) {
+	private String buildRetryAttemptMessage(Failure failure, int attemptNumber, Duration delay) {
 		return """
 			{
 				"@type": "MessageCard",
@@ -120,7 +120,7 @@ public class TeamsOpReporter implements OpReporter {
 				"themeColor": "ffcc00",
 				"summary": "Retry Attempt %d",
 				"sections": [{
-					"activityTitle": "🔄 Retry Attempt %d",
+					"activityTitle": "🔄 Retry Attempt %d (waiting %dms)",
 					"facts": [
 						{"name": "Operation", "value": "%s"},
 						{"name": "Code", "value": "%s"}
@@ -131,6 +131,7 @@ public class TeamsOpReporter implements OpReporter {
 			""".formatted(
 				attemptNumber,
 				attemptNumber,
+				delay.toMillis(),
 				escapeJson(failure.operation()),
 				escapeJson(failure.id().toString())
 			);

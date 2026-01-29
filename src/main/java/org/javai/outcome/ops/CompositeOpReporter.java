@@ -2,6 +2,7 @@ package org.javai.outcome.ops;
 
 import org.javai.outcome.Failure;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -76,10 +77,10 @@ public final class CompositeOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
 		for (OpReporter reporter : reporters) {
 			try {
-				reporter.reportRetryAttempt(failure, attemptNumber);
+				reporter.reportRetryAttempt(failure, attemptNumber, delay);
 			} catch (Exception e) {
 				logReporterError("reportRetryAttempt", reporter, e);
 			}

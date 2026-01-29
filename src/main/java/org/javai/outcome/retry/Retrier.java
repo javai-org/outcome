@@ -139,7 +139,8 @@ public final class Retrier {
         Outcome<T> result = attempt.get();
 
         while (result instanceof Outcome.Fail<T>(Failure failure)) {
-			RetryDecision decision = policy.decide(context, failure);
+            reporter.report(failure);
+            RetryDecision decision = policy.decide(context, failure);
 
             if (decision instanceof RetryDecision.GiveUp) {
                 reporter.reportRetryExhausted(failure, context.attemptNumber());
@@ -147,7 +148,7 @@ public final class Retrier {
             }
 
             if (decision instanceof RetryDecision.Retry(Duration delay)) {
-                reporter.reportRetryAttempt(failure, context.attemptNumber());
+                reporter.reportRetryAttempt(failure, context.attemptNumber(), delay);
                 sleep(delay);
                 context = context.next();
                 result = attempt.get();
@@ -225,7 +226,7 @@ public final class Retrier {
 
         Boundary boundary = Boundary.of(ALWAYS_TRANSIENT_CLASSIFIER, OpReporter.noOp());
         Retrier retrier = Retrier.builder()
-                .policy(RetryPolicy.exponentialBackoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY))
+                .policy(RetryPolicy.backoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY))
                 .build();
         return retrier.execute(boundary, work);
     }
@@ -324,7 +325,7 @@ public final class Retrier {
             public <T> WithAttempt<T> attempt(ThrowingSupplier<T, ? extends Exception> work) {
                 Objects.requireNonNull(work, "work must not be null");
                 RetryPolicy effectivePolicy = policy != null ? policy :
-                        RetryPolicy.exponentialBackoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
+                        RetryPolicy.backoff(maxAttempts, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
                 return new WithAttempt<>(effectivePolicy, reporter, work);
             }
         }
@@ -422,7 +423,7 @@ public final class Retrier {
                     }
 
                     if (decision instanceof RetryDecision.Retry retry) {
-                        reporter.reportRetryAttempt(failure, context.attemptNumber());
+                        reporter.reportRetryAttempt(failure, context.attemptNumber(), retry.delay());
                         sleep(retry.delay());
                         context = context.next();
 

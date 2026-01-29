@@ -19,7 +19,7 @@ class RetrierTest {
     private List<RetryExhausted> reportedExhausted;
     private OpReporter reporter;
 
-    record RetryAttempt(Failure failure, int attemptNumber) {}
+    record RetryAttempt(Failure failure, int attemptNumber, Duration delay) {}
     record RetryExhausted(Failure failure, int totalAttempts) {}
 
     @BeforeEach
@@ -35,8 +35,8 @@ class RetrierTest {
             }
 
             @Override
-            public void reportRetryAttempt(Failure failure, int attemptNumber) {
-                reportedRetries.add(new RetryAttempt(failure, attemptNumber));
+            public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
+                reportedRetries.add(new RetryAttempt(failure, attemptNumber, delay));
             }
 
             @Override
@@ -145,7 +145,7 @@ class RetrierTest {
     @Test
     void execute_exponentialBackoff_calculatesDelays() {
         List<Long> sleepTimes = new ArrayList<>();
-        RetryPolicy policy = RetryPolicy.exponentialBackoff(
+        RetryPolicy policy = RetryPolicy.backoff(
                 4, Duration.ofMillis(100), Duration.ofSeconds(1)
         );
         Retrier retrier = Retrier.builder()
@@ -167,7 +167,7 @@ class RetrierTest {
     @Test
     void execute_exponentialBackoff_capsAtMaxDelay() {
         List<Long> sleepTimes = new ArrayList<>();
-        RetryPolicy policy = RetryPolicy.exponentialBackoff(
+        RetryPolicy policy = RetryPolicy.backoff(
                 5, Duration.ofMillis(100), Duration.ofMillis(300)
         );
         Retrier retrier = Retrier.builder()
@@ -190,7 +190,7 @@ class RetrierTest {
     @Test
     void execute_respectsFailureMinDelay() {
         List<Long> sleepTimes = new ArrayList<>();
-        RetryPolicy policy = RetryPolicy.exponentialBackoff(
+        RetryPolicy policy = RetryPolicy.backoff(
                 3, Duration.ofMillis(100), Duration.ofSeconds(1)
         );
         Retrier retrier = Retrier.builder()
@@ -290,16 +290,16 @@ class RetrierTest {
 
     @Test
     void builder_allowsCustomReporter() {
-        List<Failure> reported = new ArrayList<>();
+        List<String> events = new ArrayList<>();
         OpReporter customReporter = new OpReporter() {
             @Override
             public void report(Failure failure) {
-                reported.add(failure);
+                events.add("report");
             }
 
             @Override
             public void reportRetryExhausted(Failure failure, int totalAttempts) {
-                reported.add(failure);
+                events.add("exhausted");
             }
         };
 
@@ -309,9 +309,10 @@ class RetrierTest {
                 .sleeper(millis -> {})
                 .build();
 
-        retrier.execute( () -> Outcome.fail(createTransientFailure("error")));
+        retrier.execute(() -> Outcome.fail(createTransientFailure("error")));
 
-        assertThat(reported).hasSize(1);
+        // Retrier reports the failure, then reports exhaustion
+        assertThat(events).containsExactly("report", "exhausted");
     }
 
     @Test
@@ -438,7 +439,7 @@ class RetrierTest {
             }
 
             @Override
-            public void reportRetryAttempt(Failure failure, int attemptNumber) {
+            public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
                 retryEvents.add("retry:" + attemptNumber);
             }
         };

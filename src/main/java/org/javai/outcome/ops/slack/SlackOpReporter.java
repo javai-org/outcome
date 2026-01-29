@@ -126,12 +126,12 @@ public class SlackOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber) {
-		String message = buildRetryAttemptMessage(failure, attemptNumber);
+	public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
+		String message = buildRetryAttemptMessage(failure, attemptNumber, delay);
 		sendMessage(message);
 	}
 
-	private String buildRetryAttemptMessage(Failure failure, int attemptNumber) {
+	private String buildRetryAttemptMessage(Failure failure, int attemptNumber, Duration delay) {
 		return """
 			{
 				"channel": "%s",
@@ -142,7 +142,7 @@ public class SlackOpReporter implements OpReporter {
 							"type": "section",
 							"text": {
 								"type": "mrkdwn",
-								"text": ":repeat: *Retry Attempt %d* for `%s`\\nCode: `%s`"
+								"text": ":repeat: *Retry Attempt %d* for `%s` (waiting %dms)\\nCode: `%s`"
 							}
 						}
 					]
@@ -152,6 +152,7 @@ public class SlackOpReporter implements OpReporter {
 				escapeJson(channel),
 				attemptNumber,
 				escapeJson(failure.operation()),
+				delay.toMillis(),
 				escapeJson(failure.id().toString())
 			);
 	}

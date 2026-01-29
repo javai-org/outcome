@@ -1,5 +1,6 @@
 package org.javai.outcome.ops.log4j;
 
+import java.time.Duration;
 import java.util.Map;
 import org.javai.outcome.Failure;
 import org.javai.outcome.NotificationIntent;
@@ -66,11 +67,12 @@ public class Log4jOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
 		logger.info(RETRY_MARKER,
-				"Retry attempt {} for operation [{}]. Code: {}, Message: {}",
+				"Retry attempt {} for operation [{}], waiting {}ms. Code: {}, Message: {}",
 				attemptNumber,
 				failure.operation(),
+				delay.toMillis(),
 				failure.id(),
 				failure.message());
 	}

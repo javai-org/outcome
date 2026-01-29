@@ -1,16 +1,13 @@
 package org.javai.outcome.examples;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import java.net.http.HttpConnectTimeoutException;
 import org.javai.outcome.FailureType;
 import org.javai.outcome.Outcome;
 import org.javai.outcome.boundary.Boundary;
 import org.javai.outcome.retry.Retrier;
 import org.javai.outcome.retry.RetryPolicy;
 import org.junit.jupiter.api.Test;
-
-import java.net.http.HttpConnectTimeoutException;
-import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Demonstrates using Boundary and Retrier for network operations.
@@ -21,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>{@link Retrier} automatically retries transient failures</li>
  * </ul>
  */
-public class NetworkInteractionTest {
+public class RetryNetworkTimeoutTest {
 
 	private final Boundary boundary = Boundary.silent();
 
@@ -47,7 +44,12 @@ public class NetworkInteractionTest {
 		FlakyApi api = new FlakyApi(2, "{\"name\": \"Alice\"}");
 
 		Retrier retrier = Retrier.builder()
-				.policy(RetryPolicy.fixed(5, Duration.ZERO))
+				.policy(RetryPolicy.immediate(5))
+				// Alternatively:
+				// Sleep for some time before each attempt:
+				//.policy(RetryPolicy.fixed(5, Duration.ofSeconds(2)))
+				// Sleep for an exponentially increasing amount of time before each attempt:
+				//.policy(RetryPolicy.backoff(3, Duration.ofSeconds(2), Duration.ofSeconds(20)))
 				.build();
 
 		Outcome<String> outcome = retrier.execute(() ->

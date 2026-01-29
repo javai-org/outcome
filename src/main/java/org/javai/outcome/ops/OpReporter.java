@@ -2,6 +2,8 @@ package org.javai.outcome.ops;
 
 import org.javai.outcome.Failure;
 
+import java.time.Duration;
+
 /**
  * Reports failures for observability and operator notification.
  * Implementations might emit metrics, structured logs, or alerts.
@@ -14,12 +16,13 @@ public interface OpReporter {
     void report(Failure failure);
 
     /**
-     * Reports a retry attempt.
+     * Reports a retry attempt about to be made after a delay.
      *
      * @param failure The failure that triggered the retry
      * @param attemptNumber The current attempt number (1-based)
+     * @param delay The delay before the next attempt
      */
-    default void reportRetryAttempt(Failure failure, int attemptNumber) {
+    default void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
         // Default: no-op. Implementations may override.
     }
 

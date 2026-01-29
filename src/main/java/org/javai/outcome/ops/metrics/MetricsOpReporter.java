@@ -5,6 +5,7 @@ import org.javai.outcome.ops.OpReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
@@ -84,9 +85,9 @@ public class MetricsOpReporter implements OpReporter {
 	}
 
 	@Override
-	public void reportRetryAttempt(Failure failure, int attemptNumber) {
+	public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
 		try {
-			String json = buildRetryAttemptJson(failure, attemptNumber);
+			String json = buildRetryAttemptJson(failure, attemptNumber, delay);
 			logger.info(json);
 		} catch (Exception e) {
 			// Reporting should not break the application
@@ -122,13 +123,14 @@ public class MetricsOpReporter implements OpReporter {
 		return sb.toString();
 	}
 
-	private String buildRetryAttemptJson(Failure failure, int attemptNumber) {
+	private String buildRetryAttemptJson(Failure failure, int attemptNumber, Duration delay) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("{");
 		appendField(sb, "eventType", "retry_attempt", true);
 		appendField(sb, "timestamp", ISO_FORMATTER.format(failure.occurredAt()), false);
 		appendField(sb, "trackingKey", buildTrackingKey(failure), false);
 		appendField(sb, "attemptNumber", String.valueOf(attemptNumber), false);
+		appendField(sb, "delayMs", String.valueOf(delay.toMillis()), false);
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
