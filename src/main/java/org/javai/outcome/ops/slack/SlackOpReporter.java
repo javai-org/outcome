@@ -9,7 +9,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.time.format.DateTimeFormatter;
+
+import static org.javai.outcome.ops.OpReporterUtils.*;
 
 /**
  * Reports failures to Slack via the Slack Web API.
@@ -218,27 +219,6 @@ public class SlackOpReporter implements OpReporter {
 				});
 	}
 
-	private static String resolveConfig(String sysProp, String envVar) {
-		String value = System.getProperty(sysProp);
-		if (value == null || value.isBlank()) {
-			value = System.getenv(envVar);
-		}
-		if (value == null || value.isBlank()) {
-			throw new IllegalStateException(
-				"Missing required configuration: set system property '" + sysProp +
-				"' or environment variable '" + envVar + "'"
-			);
-		}
-		return value;
-	}
-
-	private static String requireNonEmpty(String value, String name) {
-		if (value == null || value.isBlank()) {
-			throw new IllegalArgumentException(name + " must not be null or empty");
-		}
-		return value;
-	}
-
 	private static String emojiFor(NotificationIntent intent) {
 		return switch (intent) {
 			case NONE -> ":information_source:";
@@ -257,22 +237,4 @@ public class SlackOpReporter implements OpReporter {
 		};
 	}
 
-	private static String formatCorrelationId(Failure failure) {
-		return escapeJson(failure.correlationId() != null ? failure.correlationId() : "none");
-	}
-
-	private static String formatTimestamp(Failure failure) {
-		return failure.occurredAt()
-				.atZone(java.time.ZoneId.systemDefault())
-				.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-	}
-
-	private static String escapeJson(String s) {
-		if (s == null) return "";
-		return s.replace("\\", "\\\\")
-				.replace("\"", "\\\"")
-				.replace("\n", "\\n")
-				.replace("\r", "\\r")
-				.replace("\t", "\\t");
-	}
 }
