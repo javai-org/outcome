@@ -3,6 +3,7 @@ package org.javai.outcome.examples;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.javai.outcome.Failure;
 import org.javai.outcome.Outcome;
@@ -34,14 +35,18 @@ public class CorrectiveRetryLlmTest {
 		);
 
 		Outcome<BasketCommand> result = Retrier.withGuidance(4)
-				.attempt(() -> objectMapper.readValue(llm.chat(userRequest), BasketCommand.class))
+				.attempt(() -> getBasketCommand(llm.chat(userRequest)))
 				.deriveGuidance(this::failureToGuidance)
-				.reattempt(guidance -> () -> objectMapper.readValue(llm.chat(userRequest + guidance), BasketCommand.class))
+				.reattempt(guidance -> () -> getBasketCommand(llm.chat(userRequest + guidance)))
 				.execute();
 
 		assertThat(result.isOk()).isTrue();
 		assertThat(result.getOrThrow()).isEqualTo(new BasketCommand("addToBasket", "bananas", 2));
 		assertThat(llm.getCallCount()).isEqualTo(3);
+	}
+
+	private BasketCommand getBasketCommand(String llmResponse) throws JsonProcessingException {
+		return objectMapper.readValue(llmResponse, BasketCommand.class);
 	}
 
 	private String failureToGuidance(Failure failure) {
