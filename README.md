@@ -132,19 +132,46 @@ Implementations can route to your observability stack—metrics, structured logg
 Retry logic belongs in policies, not scattered `catch` blocks:
 
 ```java
-RetryPolicy policy = RetryPolicy.exponentialBackoff(
-    "api-call",
-    maxAttempts: 5,
-    initialDelay: Duration.ofMillis(100),
-    maxDelay: Duration.ofSeconds(10)
-);
+Retrier retrier = Retrier.builder()
+    .policy(RetryPolicy.backoff(5, Duration.ofMillis(100), Duration.ofSeconds(10)))
+    .reporter(reporter)
+    .build();
 
-Outcome<Response> result = retrier.execute("FetchUser", policy, () ->
-    boundary.call("UserApi.fetch", () -> userApi.fetch(userId))
+Outcome<Response> result = retrier.execute(
+    () -> boundary.call("UserApi.fetch", () -> userApi.fetch(userId))
 );
 ```
 
 Policies respect the failure's `RetryHint` and report all attempts through `OpReporter`.
+
+### Guided Retry
+
+For scenarios where failures can inform subsequent attempts—such as LLM interactions where error context helps the model self-correct—use guided retry:
+
+```java
+Outcome<Order> result = Retrier.withGuidance(4)
+    .attempt(() -> parse(llm.chat(request)))
+    .deriveGuidance(failure -> "\n\nPrevious attempt failed: " + failure.message() + "\nPlease try again.")
+    .reattempt(guidance -> () -> parse(llm.chat(request + guidance)))
+    .execute();
+```
+
+The pattern:
+1. **attempt** — the initial work to execute
+2. **deriveGuidance** — converts a failure into guidance text
+3. **reattempt** — the work to execute on retries, given the derived guidance
+
+This enables feedback loops where each failure provides context for the next attempt. Optional `policy()` and `reporter()` configuration is available:
+
+```java
+Outcome<Order> result = Retrier.withGuidance(4)
+    .policy(RetryPolicy.fixed(4, Duration.ofSeconds(1)))
+    .reporter(customReporter)
+    .attempt(() -> parse(llm.chat(request)))
+    .deriveGuidance(failure -> extractValidationErrors(failure))
+    .reattempt(guidance -> () -> parse(llm.chat(request + guidance)))
+    .execute();
+```
 
 ## The Full Picture
 
