@@ -7,13 +7,14 @@ This document itemizes the changes required to implement the enhanced Boundary d
 ## Current State Summary
 
 ### Outcome
-- `Ok<T>(T value)` — no correlation ID
-- `Fail<T>(Failure failure)` — correlation ID only in Failure, not Outcome itself
-- No `correlationId()` method
+- `Ok<T>(T value, Optional<String> correlationId)` — with optional correlation ID
+- `Fail<T>(Failure failure, Optional<String> correlationId)` — with optional correlation ID
+- `correlationId()` method returning `Optional<String>`
 
 ### Failure
-- Already has `correlationId` field
+- Has `correlationId` field
 - Has `withContext(correlationId, tags)` method
+- Tags provide extensible metadata
 
 ### OpReporter
 ```java
@@ -58,31 +59,30 @@ void reportRetryExhausted(Failure failure, int totalAttempts);
 
 ### Phase 1: Outcome Enhancement ✓
 
-- [x] **2.1 Add correlationId to Outcome.Ok**
+- [x] **1.1 Add correlationId to Outcome.Ok**
   - Modified `Ok<T>` record to include `Optional<String> correlationId`
   - Auto-generated `correlationId()` method returns `Optional<String>`
   - Convenience constructor `Ok(T value)` creates with empty Optional
 
-- [x] **2.2 Add correlationId to Outcome.Fail**
+- [x] **1.2 Add correlationId to Outcome.Fail**
   - Modified `Fail<T>` record to include `Optional<String> correlationId`
   - Auto-generated `correlationId()` method returns `Optional<String>`
   - Convenience constructor `Fail(Failure)` creates with empty Optional
 
-- [x] **2.3 Add correlationId method to Outcome**
+- [x] **1.3 Add correlationId method to Outcome**
   - `Outcome<T> correlationId(String correlationId)`
   - Returns new instance with correlation ID set
 
-- [x] **2.4 Update Outcome static factories**
-  - `ok(T value)` — creates Ok with empty correlationId (uses post-processing approach)
+- [x] **1.4 Update Outcome static factories**
+  - `ok(T value)` — creates Ok with empty correlationId
   - `fail(Failure failure)` — creates Fail with empty correlationId
-  - Note: Overloaded factories with correlationId parameter not needed; use `correlationId(String)` method
 
-- [x] **2.5 Update Outcome.map/flatMap to preserve correlationId**
+- [x] **1.5 Update Outcome.map/flatMap to preserve correlationId**
   - map preserves correlation ID
-  - flatMap preserves correlation ID if result has none; result's ID takes precedence if set
+  - flatMap preserves correlation ID if result has none
   - recover/recoverWith also preserve correlation ID
 
-- [x] **2.6 Add tests for Outcome correlation ID**
+- [x] **1.6 Add tests for Outcome correlation ID**
   - File: `src/test/java/org/javai/outcome/OutcomeCorrelationTest.java`
 
 ### Phase 2: OpReporter ✓
@@ -131,7 +131,7 @@ void reportRetryExhausted(Failure failure, int totalAttempts);
 - [x] **5.3 Retrier tests**
   - File: `src/test/java/org/javai/outcome/retry/RetrierTest.java`
 
-### Phase 6: Documentation
+### Phase 6: Documentation ✓
 
 - [x] **6.1 Update README.md**
   - Document Boundary and Retrier usage
@@ -140,7 +140,8 @@ void reportRetryExhausted(Failure failure, int totalAttempts);
 - [x] **6.2 Update Javadoc**
   - All classes and methods documented
 
-- [ ] **6.3 Create user guide**
+- [x] **6.3 Create user guide**
+  - File: `docs/USER-GUIDE.md`
   - Comprehensive guide for Outcome framework
 
 ---
