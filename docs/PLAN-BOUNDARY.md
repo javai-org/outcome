@@ -73,32 +73,32 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 ## Implementation Checklist
 
-### Phase 1: Core Types
+### Phase 1: Core Types ✓
 
-- [ ] **1.1 Create Factor sealed interface**
+- [x] **1.1 Create Factor sealed interface**
   - File: `src/main/java/org/javai/outcome/Factor.java`
   - Sealed interface with `String name()` method
   - Permits: `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomFactor`
 
-- [ ] **1.2 Create DaysOfWeek record**
+- [x] **1.2 Create DaysOfWeek record**
   - File: `src/main/java/org/javai/outcome/DaysOfWeek.java`
   - `record DaysOfWeek(Set<DayOfWeek> days) implements Factor`
   - Factory methods: `of(DayOfWeek...)`, `weekdays()`, `weekends()`
 
-- [ ] **1.3 Create TimeOfDay record**
+- [x] **1.3 Create TimeOfDay record**
   - File: `src/main/java/org/javai/outcome/TimeOfDay.java`
   - `record TimeOfDay(int fromHour, int toHour) implements Factor`
   - Factory methods: `businessHours()`, `offHours()`
 
-- [ ] **1.4 Create Region record**
+- [x] **1.4 Create Region record**
   - File: `src/main/java/org/javai/outcome/Region.java`
   - `record Region(String value) implements Factor`
 
-- [ ] **1.5 Create CustomFactor record**
+- [x] **1.5 Create CustomFactor record**
   - File: `src/main/java/org/javai/outcome/CustomFactor.java`
   - `record CustomFactor(String name, String value) implements Factor`
 
-- [ ] **1.6 Add tests for Factor types**
+- [x] **1.6 Add tests for Factor types**
   - File: `src/test/java/org/javai/outcome/FactorTest.java`
 
 ### Phase 2: Outcome Enhancement
