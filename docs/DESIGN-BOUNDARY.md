@@ -57,9 +57,9 @@ Boundary's role is instrumentation and observation, not translation. Exception t
 
 Both methods:
 1. Generate correlation ID
-2. Emit start event (operation, correlation ID, timestamp, covariates)
+2. Report start (`onStart`)
 3. Invoke work
-4. Emit end event (operation, correlation ID, timestamp, outcome, covariates)
+4. Report end (`onEnd`)
 5. Return the outcome
 
 The only difference is whether translation is needed. That's an implementation detail.
@@ -68,16 +68,17 @@ The only difference is whether translation is needed. That's an implementation d
 
 ### 2. Lifecycle Event Reporting
 
-**Decision:** Boundary reports **two distinct events** per invocation — a start event and an end event — not a single event with embedded duration.
+**Decision:** Boundary reports the operation lifecycle as distinct events — start, middle (retries), and end — via `OpReporter`.
 
 **Justification:**
 
-A Boundary operation involves two crossings:
+An operation has a temporal sequence:
 
-1. **Outbound crossing** — the moment control leaves deterministic code and enters the fallible operation
-2. **Inbound crossing** — the moment control returns with an outcome
+1. **Start** — the moment work begins
+2. **Middle** — retry attempts following transient failures
+3. **End** — the moment work completes with a final outcome
 
-Each crossing is an event. Each event has a timestamp. Duration is *derived* by correlating the two events, not embedded in either. This is conceptually cleaner — each event represents a point in time, not a span.
+These are distinct points in time. You cannot report the end at the start. Duration is derived by the consumer from the timestamps of start and end events.
 
 Failure-only reporting is insufficient for:
 - **Latency monitoring:** Signal needs duration of successful operations, not just failures
@@ -86,23 +87,131 @@ Failure-only reporting is insufficient for:
 
 By reporting lifecycle events, Boundary becomes the single instrumentation point for all non-deterministic operations. Consumers (like Signal) receive complete data and decide what to analyze.
 
-**Event Data:**
+**Correlation ID in Outcome:**
 
-Start event:
-- Operation name
-- Correlation ID (to link with end event)
-- Timestamp
-- Covariates
+Correlation ID is intrinsic to `Outcome`, not external plumbing. Both `Ok` and `Fail` carry an optional correlation ID:
 
-End event:
-- Operation name
-- Correlation ID (matches start event)
-- Timestamp
-- Outcome (Ok or Fail)
-- Failure details (if Fail)
-- Covariates
+```java
+public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
+    Optional<String> correlationId();
 
-Duration is computed by the consumer: `end.timestamp - start.timestamp`
+    record Ok<T>(T value, String correlationId) implements Outcome<T> {
+        public Optional<String> correlationId() {
+            return Optional.ofNullable(correlationId);
+        }
+    }
+
+    record Fail<T>(Failure failure, String correlationId) implements Outcome<T> {
+        public Optional<String> correlationId() {
+            return Optional.ofNullable(correlationId);
+        }
+    }
+}
+```
+
+**Correlation ID Type: String**
+
+The correlation ID is a `String`, not `UUID`. This allows:
+- External correlation IDs (HTTP headers, AWS X-Ray, OpenTelemetry trace IDs)
+- No conversion needed for logging/JSON
+- Simple test IDs (`"test-123"`)
+- UUID when desired: `UUID.randomUUID().toString()`
+
+**When Correlation ID is Present:**
+
+| Context                           | Correlation ID                 |
+|-----------------------------------|--------------------------------|
+| Standalone `Outcome.ok(value)`    | Empty                          |
+| Created inside `boundary.call()`  | Populated by Boundary          |
+| Async initiation                  | Caller receives ID immediately |
+| Async completion (Future returns) | Outcome carries same ID        |
+
+This distinguishes standalone events from correlated sequences without special handling.
+
+**OpReporter Interface:**
+
+Because correlation ID is intrinsic to Outcome, OpReporter methods are simplified:
+
+```java
+public interface OpReporter {
+    // Standalone failure (no boundary context)
+    void report(Failure failure);
+
+    // Operation started
+    void onStart(String operation, String correlationId, Set<Covariate> covariates);
+
+    // Retry attempt (middle event) — correlation ID from outcome
+    void onRetryAttempt(Outcome.Fail<?> failure, int attemptNumber, Duration delay);
+
+    // Operation completed — correlation ID from outcome
+    void onEnd(Outcome<?> outcome);
+
+    // Retries exhausted — correlation ID from outcome
+    void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
+}
+```
+
+**Correlation Benefits:**
+
+The correlation ID threads through all events for the same logical operation, allowing consumers to:
+- Link start → retries → end
+- Compute duration: `onEnd.timestamp - onStart.timestamp`
+- Track retry sequences
+- Correlate with external tracing infrastructure
+
+**How Boundary Assigns Correlation IDs:**
+
+Boundary uses post-processing: the lambda executes without knowledge of the correlation ID, and Boundary adds it to the returned Outcome afterward:
+
+```java
+public <T> Outcome<T> call(String operation, Supplier<Outcome<T>> work) {
+    String correlationId = generateCorrelationId();
+    reporter.onStart(operation, correlationId, covariates);
+
+    Outcome<T> result = work.get();
+
+    Outcome<T> correlated = result.withCorrelationId(correlationId);
+    reporter.onEnd(correlated);
+    return correlated;
+}
+```
+
+This approach:
+- Keeps the lambda signature unchanged
+- Makes correlation Boundary's concern, not the lambda's
+- Works uniformly for exception-throwing and Outcome-returning code
+
+**Nested Boundary Calls:**
+
+When Boundary calls are nested, each Boundary has its own correlation ID:
+
+```java
+Outcome<Order> result = outerBoundary.call("OrderService.create", () -> {
+    Outcome<User> user = innerBoundary.call("UserService.fetch", () ->
+        userRepository.findById(userId)
+    );
+    // ... returns Outcome<Order>
+});
+```
+
+Event sequence:
+1. Outer Boundary: `onStart("OrderService.create", "outer-123")`
+2. Inner Boundary: `onStart("UserService.fetch", "inner-456")`
+3. Inner Boundary: `onEnd(outcome with "inner-456")`
+4. Outer Boundary overwrites correlation ID → `"outer-123"`
+5. Outer Boundary: `onEnd(outcome with "outer-123")`
+
+The inner correlation ID is overwritten, but this is correct:
+- The inner Boundary already reported its events with `"inner-456"`
+- The outer Boundary reports its events with `"outer-123"`
+- Both operations are fully traced independently
+- Correlation ID links events within a *single* Boundary call, not parent-child relationships
+
+Linking outer to inner operations is distributed tracing territory (parent spans), not the correlation ID's purpose.
+
+**Timestamps:**
+
+Timestamps are implicit — the receiver captures `Instant.now()` when the method is called. This keeps the interface simple and avoids clock synchronization concerns between Boundary and OpReporter.
 
 **Consumer Filtering:**
 
@@ -435,7 +544,8 @@ Signal is one of many possible OpReporter implementations. Boundary has no direc
 |--------|----------|
 | **Conceptual role** | Indeterminacy declaration point, not just exception adapter |
 | **Code support** | Exception-throwing and Outcome-returning equally |
-| **Event reporting** | Two events per crossing (start and end); duration computed by consumer |
+| **Event reporting** | Start, middle (retries), end events via OpReporter; duration computed by consumer |
+| **Correlation ID** | Intrinsic to Outcome (optional String); distinguishes standalone vs correlated events |
 | **Execution model** | Synchronous crossings only |
 | **Async approach** | Virtual threads; reactive frameworks not accommodated |
 | **Covariates** | First-class types (DaysOfWeek, TimeOfDay, Region, Custom); not string maps |
