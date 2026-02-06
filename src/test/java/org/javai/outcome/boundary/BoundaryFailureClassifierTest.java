@@ -29,7 +29,6 @@ class BoundaryFailureClassifierTest {
 
         assertThat(failure.id()).isEqualTo(FailureId.of("network", "timeout"));
         assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
-        assertThat(failure.retryAfter()).isNotNull();
     }
 
     @Test

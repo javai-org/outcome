@@ -2,9 +2,11 @@
 
 **A bridge between deterministic and non-deterministic worlds.**
 
-Most application code is deterministic. Given the same inputs, it produces the same outputs. But applications routinely encounter non-determinism — external services like databases, APIs, and payment gateways that may fail unpredictably, or internal stochastic algorithms like Monte Carlo simulations and LLM interactions whose outputs vary by design.
+Most application code is deterministic. Given the same inputs, it produces the same outputs. But applications routinely encounter non-determinism — operations whose outcomes depend on factors outside the code's control: network availability, service responsiveness, database state, or even intentional randomness in stochastic algorithms.
 
-Outcome provides a formal boundary where deterministic code meets non-deterministic operations — whether those operations call external services or invoke probabilistic algorithms. At this boundary, indeterminacy is acknowledged, observed, and converted into one of two well-defined states: **Ok** or **Fail**. From there, application code flows deterministically again — handling success or failure through normal control flow, not exception handling.
+Not all non-determinism implies failure. A random number generator is non-deterministic yet doesn't fail. However, in practice, the vast majority of non-deterministic operations Java developers encounter are *fallible*: network calls, database queries, external API invocations. These may timeout, return errors, or simply not respond. Outcome addresses this dominant case.
+
+It provides a formal boundary where deterministic code meets fallible operations. At this boundary, uncertainty is acknowledged, observed, and converted into one of two well-defined states: **Ok** or **Fail**. From there, application code flows deterministically again — handling success or failure through normal control flow, not exception handling.
 
 ## The Problem
 
@@ -88,7 +90,7 @@ A structured failure with everything needed for reporting and policy decisions:
 
 - **FailureId** — namespaced identifier (`network:timeout`, `sql:connection`)
 - **FailureType** — `TRANSIENT`, `PERMANENT`, or `DEFECT`
-- **RetryAfter** — advisory delay before retry (when applicable)
+- **RetryAfter** — advisory delay before retry (e.g., from HTTP 429/503 `Retry-After` header)
 - **Operation** — the operation that failed
 - **Tags** — additional key-value metadata for observability
 
@@ -268,9 +270,9 @@ Software systems are composed of two fundamentally different domains:
 
 **Deterministic code** — your application logic. Given the same inputs, it produces the same outputs. It can be reasoned about, tested exhaustively, and trusted to behave predictably.
 
-**Non-deterministic services** — databases, APIs, networks, external systems. They may succeed, fail, timeout, return garbage, or simply not respond. No amount of careful coding eliminates this uncertainty.
+**Fallible operations** — databases, APIs, networks, external systems. They may succeed, fail, timeout, return garbage, or simply not respond. No amount of careful coding eliminates this uncertainty.
 
-Outcome's central insight is that **the boundary between these domains deserves first-class treatment**. The `Boundary` component marks these crossing points explicitly. Indeterminacy is acknowledged, observed, and resolved into a well-defined `Outcome` — either `Ok` or `Fail`. From there, deterministic code resumes.
+Outcome's central insight is that **the boundary between these domains deserves first-class treatment**. The `Boundary` component marks these crossing points explicitly. Uncertainty is acknowledged, observed, and resolved into a well-defined `Outcome` — either `Ok` or `Fail`. From there, deterministic code resumes.
 
 This isn't defensive programming. It's architectural honesty.
 

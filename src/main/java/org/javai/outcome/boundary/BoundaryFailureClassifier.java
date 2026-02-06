@@ -10,7 +10,6 @@ import java.nio.file.AccessDeniedException;
 import java.nio.file.NoSuchFileException;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
-import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import org.javai.outcome.Failure;
 import org.javai.outcome.FailureId;
@@ -40,8 +39,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
                     FailureId.of("network", "timeout"),
                     messageFor("Socket timeout", t),
                     operation,
-                    t,
-                    Duration.ofMillis(500)
+                    t
             );
         }
 
@@ -50,8 +48,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
                     FailureId.of("network", "http_timeout"),
                     messageFor("HTTP timeout", t),
                     operation,
-                    t,
-                    Duration.ofMillis(500)
+                    t
             );
         }
 
@@ -60,8 +57,7 @@ public class BoundaryFailureClassifier implements FailureClassifier {
                     FailureId.of("network", "connection_refused"),
                     messageFor("Connection refused", t),
                     operation,
-                    t,
-                    Duration.ofSeconds(1)
+                    t
             );
         }
 
