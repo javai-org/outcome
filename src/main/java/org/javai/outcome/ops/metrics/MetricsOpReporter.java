@@ -115,7 +115,6 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "message", failure.message(), false);
 		appendField(sb, "type", failure.type().name(), false);
-		appendField(sb, "notification", failure.notificationIntent().name(), false);
 		appendField(sb, "operation", failure.operation(), false);
 		if (failure.correlationId() != null) {
 			appendField(sb, "correlationId", failure.correlationId(), false);

@@ -3,7 +3,7 @@ package org.javai.outcome.ops.log4j;
 import java.time.Duration;
 import java.util.Map;
 import org.javai.outcome.Failure;
-import org.javai.outcome.NotificationIntent;
+import org.javai.outcome.FailureType;
 import org.javai.outcome.ops.OpReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,12 +13,11 @@ import org.slf4j.MarkerFactory;
 /**
  * Reports failures using SLF4J structured logging.
  *
- * <p>Failures are logged with appropriate log levels based on their {@link NotificationIntent}:
+ * <p>Failures are logged with appropriate log levels based on their {@link FailureType}:
  * <ul>
- *   <li>{@code PAGE} → ERROR</li>
- *   <li>{@code ALERT} → WARN</li>
- *   <li>{@code OBSERVE} → INFO</li>
- *   <li>{@code NONE} → DEBUG</li>
+ *   <li>{@code DEFECT} → ERROR</li>
+ *   <li>{@code PERMANENT} → WARN</li>
+ *   <li>{@code TRANSIENT} → INFO</li>
  * </ul>
  *
  * <p>Log entries include structured context via MDC-style key-value pairs for integration
@@ -63,7 +62,7 @@ public class Log4jOpReporter implements OpReporter {
 	@Override
 	public void report(Failure failure) {
 		String message = formatFailureMessage(failure);
-		logAtLevel(failure.notificationIntent(), FAILURE_MARKER, message);
+		logAtLevel(failure.type(), FAILURE_MARKER, message);
 	}
 
 	@Override
@@ -87,25 +86,23 @@ public class Log4jOpReporter implements OpReporter {
 				failure.message());
 	}
 
-	private void logAtLevel(NotificationIntent intent, Marker marker, String message) {
-		switch (intent) {
-			case PAGE -> logger.error(marker, message);
-			case ALERT -> logger.warn(marker, message);
-			case OBSERVE -> logger.info(marker, message);
-			case NONE -> logger.debug(marker, message);
+	private void logAtLevel(FailureType type, Marker marker, String message) {
+		switch (type) {
+			case DEFECT -> logger.error(marker, message);
+			case PERMANENT -> logger.warn(marker, message);
+			case TRANSIENT -> logger.info(marker, message);
 		}
 	}
 
 	private String formatFailureMessage(Failure failure) {
 		return """
 			Failure in operation [%s]: %s \
-			| id=%s, type=%s, notification=%s%s%s%s\
+			| id=%s, type=%s%s%s%s\
 			""".formatted(
 				failure.operation(),
 				failure.message(),
 				failure.id(),
 				failure.type(),
-				failure.notificationIntent(),
 				formatCorrelationId(failure.correlationId()),
 				formatTags(failure.tags()),
 				formatException(failure.exception())

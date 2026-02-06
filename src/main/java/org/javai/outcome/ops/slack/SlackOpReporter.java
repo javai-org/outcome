@@ -1,7 +1,7 @@
 package org.javai.outcome.ops.slack;
 
 import org.javai.outcome.Failure;
-import org.javai.outcome.NotificationIntent;
+import org.javai.outcome.FailureType;
 import org.javai.outcome.ops.OpReporter;
 
 import java.net.URI;
@@ -71,8 +71,8 @@ public class SlackOpReporter implements OpReporter {
 	}
 
 	private String buildFailureMessage(Failure failure) {
-		String emoji = emojiFor(failure.notificationIntent());
-		String color = colorFor(failure.notificationIntent());
+		String emoji = emojiFor(failure.type());
+		String color = colorFor(failure.type());
 
 		return """
 			{
@@ -219,21 +219,19 @@ public class SlackOpReporter implements OpReporter {
 				});
 	}
 
-	private static String emojiFor(NotificationIntent intent) {
-		return switch (intent) {
-			case NONE -> ":information_source:";
-			case OBSERVE -> ":eyes:";
-			case ALERT -> ":warning:";
-			case PAGE -> ":rotating_light:";
+	private static String emojiFor(FailureType type) {
+		return switch (type) {
+			case TRANSIENT -> ":eyes:";
+			case PERMANENT -> ":warning:";
+			case DEFECT -> ":rotating_light:";
 		};
 	}
 
-	private static String colorFor(NotificationIntent intent) {
-		return switch (intent) {
-			case NONE -> "#36a64f";      // green
-			case OBSERVE -> "#439fe0";   // blue
-			case ALERT -> "#ffcc00";     // yellow
-			case PAGE -> "#ff0000";      // red
+	private static String colorFor(FailureType type) {
+		return switch (type) {
+			case TRANSIENT -> "#439fe0";   // blue
+			case PERMANENT -> "#ffcc00";   // yellow
+			case DEFECT -> "#ff0000";      // red
 		};
 	}
 

@@ -197,8 +197,7 @@ class MetricsOpReporterTest {
 	}
 
 	@Test
-	void report_includesTypeAndNotification() {
-		// transientFailure creates TRANSIENT type which maps to OBSERVE notification
+	void report_includesType() {
 		Failure failure = Failure.transientFailure(
 				FailureId.of("http", "timeout"),
 				"Connection timed out",
@@ -211,7 +210,6 @@ class MetricsOpReporterTest {
 		assertThat(capturedMessages).hasSize(1);
 		String json = capturedMessages.getFirst();
 		assertThat(json).contains("\"type\":\"TRANSIENT\"");
-		assertThat(json).contains("\"notification\":\"OBSERVE\"");
 	}
 
 	@Test

@@ -91,30 +91,23 @@ All failures shall be represented using a single canonical model suitable for re
 
 ```java
 public record Failure(
-    FailureCode code,
-    FailureCategory category,
-    FailureStability stability,
-    NotificationIntent notify,
-    String operation,
+    FailureId id,
     String message,
-    Map<String, String> tags,
+    FailureType type,
+    Throwable exception,
+    Duration retryAfter,
+    String operation,
     Instant occurredAt,
     String correlationId,
-    Cause cause,
-    RetryHint retryHint // nullable
+    Map<String, String> tags,
+    String trackingId
 ) {}
 ```
 
 Enumerations:
 
 ```java
-public enum FailureCategory { RECOVERABLE, DEFECT, TERMINAL }
-
-public enum FailureStability { TRANSIENT, PERMANENT, UNKNOWN }
-
-public enum NotificationIntent { NONE, OBSERVE, ALERT, PAGE }
-
-public enum Retryability { NONE, MAYBE, YES }
+public enum FailureType { TRANSIENT, PERMANENT, DEFECT }
 ```
 
 Structured identifiers and causes:

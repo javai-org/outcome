@@ -86,11 +86,11 @@ Outcome<Order> order = fetchUser(userId)
 
 A structured failure with everything needed for reporting and policy decisions:
 
-- **FailureCode** — namespaced identifier (`network:timeout`, `sql:connection`)
-- **FailureCategory** — `RECOVERABLE`, `DEFECT`, or `TERMINAL`
-- **FailureStability** — `TRANSIENT`, `PERMANENT`, or `UNKNOWN`
-- **RetryHint** — advisory guidance for retry policies
-- **NotificationIntent** — `NONE`, `OBSERVE`, `ALERT`, or `PAGE`
+- **FailureId** — namespaced identifier (`network:timeout`, `sql:connection`)
+- **FailureType** — `TRANSIENT`, `PERMANENT`, or `DEFECT`
+- **RetryAfter** — advisory delay before retry (when applicable)
+- **Operation** — the operation that failed
+- **Tags** — additional key-value metadata for observability
 
 This isn't heavyweight ceremony—it's the information operators *need* to respond appropriately.
 
@@ -118,18 +118,12 @@ Failures are first-class concerns, not afterthoughts buried in log files:
 ```java
 public interface OpReporter {
     void report(Failure failure);
-    void reportRetryAttempt(Failure failure, int attemptNumber, String policyId);
-    void reportRetryExhausted(Failure failure, int totalAttempts, String policyId);
+    void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay);
+    void reportRetryExhausted(Failure failure, int totalAttempts);
 }
 ```
 
-Every failure carries a `NotificationIntent`:
-- **NONE** — handled entirely by the application
-- **OBSERVE** — emit metrics/traces, no active notification
-- **ALERT** — notify operators during business hours
-- **PAGE** — wake someone up
-
-Implementations can route to your observability stack—metrics, structured logging, PagerDuty, whatever your organization uses.
+OpReporter implementations decide how to handle each failure based on its `FailureType` and their own configuration. Route to your observability stack—metrics, structured logging, Slack, Teams, or whatever your organization uses.
 
 ### Policy-Driven Retry
 
@@ -227,7 +221,7 @@ Outcome<Order> result = Retrier.withGuidance(4)
 ```
 org.javai.outcome
 ├── Outcome, Failure, FailureKind, FailureCode
-├── FailureCategory, FailureStability, NotificationIntent
+├── FailureType, FailureId
 ├── RetryHint, Retryability, Cause
 │
 ├── boundary/

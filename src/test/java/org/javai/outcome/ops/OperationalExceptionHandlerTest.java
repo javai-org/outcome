@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 import org.javai.outcome.Failure;
 import org.javai.outcome.FailureId;
 import org.javai.outcome.FailureType;
-import org.javai.outcome.NotificationIntent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,12 +53,11 @@ class OperationalExceptionHandlerTest {
     }
 
     @Test
-    void uncaughtException_defect_pagesOperator() {
+    void uncaughtException_defect_isClassifiedAsDefect() {
         handler.uncaughtException(Thread.currentThread(), new NullPointerException());
 
         Failure failure = reportedFailures.getFirst();
         assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
-        assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
     @Test
@@ -69,7 +67,6 @@ class OperationalExceptionHandlerTest {
 
         Failure failure = reportedFailures.getFirst();
         assertThat(failure.type()).isEqualTo(FailureType.DEFECT);
-        assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.PAGE);
     }
 
     @Test

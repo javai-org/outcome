@@ -1,7 +1,7 @@
 package org.javai.outcome.ops.teams;
 
 import org.javai.outcome.Failure;
-import org.javai.outcome.NotificationIntent;
+import org.javai.outcome.FailureType;
 import org.javai.outcome.ops.OpReporter;
 
 import java.net.URI;
@@ -71,8 +71,8 @@ public class TeamsOpReporter implements OpReporter {
 	}
 
 	private String buildFailureMessage(Failure failure) {
-		String color = colorFor(failure.notificationIntent());
-		String emoji = emojiFor(failure.notificationIntent());
+		String color = colorFor(failure.type());
+		String emoji = emojiFor(failure.type());
 
 		return """
 			{
@@ -188,22 +188,20 @@ public class TeamsOpReporter implements OpReporter {
 				});
 	}
 
-	private static String emojiFor(NotificationIntent intent) {
-		return switch (intent) {
-			case NONE -> "ℹ️";
-			case OBSERVE -> "👀";
-			case ALERT -> "⚠️";
-			case PAGE -> "🚨";
+	private static String emojiFor(FailureType type) {
+		return switch (type) {
+			case TRANSIENT -> "👀";
+			case PERMANENT -> "⚠️";
+			case DEFECT -> "🚨";
 		};
 	}
 
-	private static String colorFor(NotificationIntent intent) {
+	private static String colorFor(FailureType type) {
 		// Teams uses hex colors without the # prefix
-		return switch (intent) {
-			case NONE -> "36a64f";      // green
-			case OBSERVE -> "439fe0";   // blue
-			case ALERT -> "ffcc00";     // yellow
-			case PAGE -> "ff0000";      // red
+		return switch (type) {
+			case TRANSIENT -> "439fe0";   // blue
+			case PERMANENT -> "ffcc00";   // yellow
+			case DEFECT -> "ff0000";      // red
 		};
 	}
 

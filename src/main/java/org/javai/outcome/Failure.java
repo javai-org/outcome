@@ -42,22 +42,6 @@ public record Failure(
         trackingId = trackingId == null ? operation : trackingId;
     }
 
-    /**
-     * Computes the notification intent based on failure type.
-     * <ul>
-     *   <li>TRANSIENT → OBSERVE (expected, will likely resolve)</li>
-     *   <li>PERMANENT → ALERT (needs attention but not urgent)</li>
-     *   <li>DEFECT → PAGE (requires immediate intervention)</li>
-     * </ul>
-     */
-    public NotificationIntent notificationIntent() {
-        return switch (type) {
-            case TRANSIENT -> NotificationIntent.OBSERVE;
-            case PERMANENT -> NotificationIntent.ALERT;
-            case DEFECT -> NotificationIntent.PAGE;
-        };
-    }
-
     // === Factory methods for common failure types ===
 
     /**

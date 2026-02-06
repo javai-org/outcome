@@ -143,13 +143,12 @@ class BoundaryTest {
     }
 
     @Test
-    void call_transientOperational_setsObserveNotification() {
+    void call_transientOperational_setsTransientType() {
         Outcome<String> result = boundary.call("Op", () -> {
             throw new SocketTimeoutException("timeout");
         });
 
         Failure failure = ((Outcome.Fail<String>) result).failure();
         assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
-        assertThat(failure.notificationIntent()).isEqualTo(NotificationIntent.OBSERVE);
     }
 }
