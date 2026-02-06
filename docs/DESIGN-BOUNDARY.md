@@ -134,20 +134,14 @@ Because correlation ID is intrinsic to Outcome, OpReporter methods are simplifie
 
 ```java
 public interface OpReporter {
-    // Standalone failure (no boundary context)
+    // Report a failure
     void report(Failure failure);
 
-    // Operation started
-    void onStart(String operation, String correlationId, Set<Covariate> covariates);
+    // Retry attempt — correlation ID from failure
+    void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay);
 
-    // Retry attempt (middle event) — correlation ID from outcome
-    void onRetryAttempt(Outcome.Fail<?> failure, int attemptNumber, Duration delay);
-
-    // Operation completed — correlation ID from outcome
-    void onEnd(Outcome<?> outcome);
-
-    // Retries exhausted — correlation ID from outcome
-    void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
+    // Retries exhausted — correlation ID from failure
+    void reportRetryExhausted(Failure failure, int totalAttempts);
 }
 ```
 
@@ -165,14 +159,16 @@ Boundary uses post-processing: the lambda executes without knowledge of the corr
 
 ```java
 public <T> Outcome<T> call(String operation, Supplier<Outcome<T>> work) {
-    String correlationId = generateCorrelationId();
-    reporter.onStart(operation, correlationId, factors);
+    String correlationId = correlationIdSupplier.get();
 
     Outcome<T> result = work.get();
 
-    Outcome<T> correlated = result.withCorrelationId(correlationId);
-    reporter.onEnd(correlated);
-    return correlated;
+    // Enrich with context if needed
+    if (result instanceof Outcome.Fail<T> fail && correlationId != null) {
+        Failure enriched = fail.failure().withContext(correlationId, Map.of());
+        return Outcome.fail(enriched);
+    }
+    return result;
 }
 ```
 
@@ -309,137 +305,6 @@ Trying to protect developers from every possible misuse:
 - Automatic detection of event loop blocking
 - Reactive framework adapters
 - Callback-based APIs
-
----
-
-### 6. Covariates as First-Class Types
-
-**Decision:** Covariates are first-class types, not string maps. Outcome predefines common covariates and allows custom covariates for domain-specific needs.
-
-**Terminology:** Outcome uses "covariates" to align with PUnit's terminology. This ensures consistency when PUnit deprecates its own Covariate type in favor of Outcome's.
-
-**Justification:**
-
-Covariates define **subgroup membership criteria** — things that affect an operation's behavior. They are not arbitrary metadata — they have analytical meaning. A covariate like `DaysOfWeek([MON, TUE, WED, THU, FRI])` declares: "Events occurring on these days belong to this subgroup."
-
-This is fundamentally different from tags (general metadata for observability). Mixing them in a `Map<String, String>` obscures the intent and creates problems:
-- Consumers can't distinguish analytical dimensions from incidental metadata
-- String keys invite inconsistency (`"region"` vs `"Region"` vs `"REGION"`)
-- High-cardinality tags could poison statistical analysis
-
-**Predefined Covariates:**
-
-```java
-public sealed interface Covariate permits DaysOfWeek, TimeOfDay, Region, CustomCovariate {
-    String name();
-}
-
-public record DaysOfWeek(Set<DayOfWeek> days) implements Covariate {
-
-    public static DaysOfWeek of(DayOfWeek... days) {
-        return new DaysOfWeek(Set.of(days));
-    }
-
-    public static DaysOfWeek weekdays() {
-        return of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY);
-    }
-
-    public static DaysOfWeek weekends() {
-        return of(SATURDAY, SUNDAY);
-    }
-
-    @Override
-    public String name() { return "days_of_week"; }
-}
-
-public record TimeOfDay(int fromHour, int toHour) implements Covariate {
-
-    public static TimeOfDay businessHours() {
-        return new TimeOfDay(9, 17);
-    }
-
-    public static TimeOfDay offHours() {
-        return new TimeOfDay(17, 9);
-    }
-
-    @Override
-    public String name() { return "time_of_day"; }
-}
-
-public record Region(String value) implements Covariate {
-    @Override
-    public String name() { return "region"; }
-}
-
-public record CustomCovariate(String name, String value) implements Covariate {}
-```
-
-**Fluent API for Specifying Covariates:**
-
-Developers specify covariates via a fluent API on Boundary:
-
-```java
-// Without covariates (default)
-boundary.call("UserService.fetch", () -> userService.fetch(id));
-
-// With covariates
-boundary.covariates(DaysOfWeek.weekdays(), TimeOfDay.businessHours())
-    .call("UserService.fetch", () -> userService.fetch(id));
-```
-
-Implementation:
-
-```java
-public final class Boundary {
-
-    public BoundaryContext covariates(Covariate... covariates) {
-        return new BoundaryContext(this, Set.of(covariates));
-    }
-
-    public <T> Outcome<T> call(String operation, ThrowingSupplier<T, ?> work) {
-        return new BoundaryContext(this, Set.of()).call(operation, work);
-    }
-}
-
-public final class BoundaryContext {
-    private final Boundary boundary;
-    private final Set<Covariate> covariates;
-
-    public <T> Outcome<T> call(String operation, ThrowingSupplier<T, ?> work) {
-        String correlationId = generateCorrelationId();
-        boundary.reporter.onStart(operation, correlationId, covariates);
-        // ... execute work, handle exceptions ...
-        boundary.reporter.onEnd(outcome);
-        return outcome;
-    }
-}
-```
-
-**Covariate Semantics:**
-
-Covariates define which events belong to a subgroup:
-
-- `DaysOfWeek.weekdays()` — events on Mon-Fri belong to this subgroup
-- `DaysOfWeek.of(MONDAY)` — only Monday events (weekly sampling)
-- `TimeOfDay.businessHours()` — events during 9-17 hours
-- `Region("us-east-1")` — events from this region
-
-The developer declares: "For this operation, analyze events matching these criteria as a coherent population."
-
-**Separation of Concerns:**
-
-Outcome defines covariate *data*. It does not implement matching logic.
-
-Signal (or any consumer) interprets covariates and implements `matches(Instant, Covariate)` to route events to appropriate subgroups. This keeps Outcome focused on data representation while allowing consumers to implement their own routing logic.
-
-**Covariates vs Tags:**
-
-| Aspect | Covariates | Tags |
-|--------|------------|------|
-| **Purpose** | Define statistical subgroups | General observability metadata |
-| **Type safety** | First-class types | String maps |
-| **Cardinality** | Must be bounded | Can be high-cardinality |
-| **Interpretation** | Signal routes by these | Passed through to reporters |
 
 ---
 
@@ -587,11 +452,11 @@ Signal is one of many possible OpReporter implementations. Boundary has no direc
 |--------|----------|
 | **Conceptual role** | Indeterminacy declaration point, not just exception adapter |
 | **Code support** | Exception-throwing and Outcome-returning equally |
-| **Event reporting** | Start, middle (retries), end events via OpReporter; duration computed by consumer |
-| **Correlation ID** | Intrinsic to Outcome (optional String); distinguishes standalone vs correlated events |
+| **Event reporting** | Failure, retry attempt, and retry exhausted events via OpReporter |
+| **Correlation ID** | Optional String on Failure; distinguishes standalone vs correlated events |
 | **Execution model** | Synchronous crossings only |
 | **Async approach** | Virtual threads; reactive frameworks not accommodated |
-| **Covariates** | First-class types (DaysOfWeek, TimeOfDay, Region, Custom); fluent API `boundary.covariates(...)` |
+| **Tags** | General observability metadata via `Map<String, String>` |
 | **Developer model** | Responsible professionals; no excessive guardrails |
 
 ---

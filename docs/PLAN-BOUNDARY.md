@@ -21,87 +21,42 @@ void report(Failure failure);
 void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay);
 void reportRetryExhausted(Failure failure, int totalAttempts);
 ```
-- Only failure events
-- No start/end lifecycle events
-- No Covariate support
+- Failure and retry events
+- Tags for observability metadata
 
 ### Boundary
 - `call(operation, work)` — returns `Outcome<T>`
-- `call(operation, tags, work)` — with tags
-- Reports failures only (via `reporter.report(failure)`)
-- No lifecycle events (onStart/onEnd)
-- No fluent API for covariates
-- Correlation ID only used in failure path
-- Success outcomes have no correlation ID
+- `call(operation, tags, work)` — with observability tags
+- Enriches failures with correlation ID and tags
+- Reports failures via `reporter.report(failure)`
 
 ---
 
 ## Target State Summary
 
 ### Outcome
-- `Ok<T>(T value, String correlationId)` — with optional correlation ID
-- `Fail<T>(Failure failure, String correlationId)` — with optional correlation ID
-- `correlationId()` method returning `Optional<String>`
-- `correlationId(String)` method for post-processing
-
-### Covariate (new)
-- Sealed interface with predefined implementations
-- `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomCovariate`
+- `Ok<T>(T value)` — success value
+- `Fail<T>(Failure failure)` — failure with optional correlation ID in Failure
+- Correlation ID flows through Failure for tracing
 
 ### OpReporter
 ```java
-void report(Failure failure);  // standalone, no boundary context
-void onStart(String operation, String correlationId, Set<Covariate> covariates);
-void onEnd(Outcome<?> outcome);
-void onRetryAttempt(Outcome.Fail<?> failure, int attemptNumber, Duration delay);
-void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
+void report(Failure failure);
+void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay);
+void reportRetryExhausted(Failure failure, int totalAttempts);
 ```
 
 ### Boundary
-- Fluent API: `boundary.covariates(...).call(operation, work)`
-- Generates correlation ID for every call
-- Emits `onStart` before work
-- Emits `onEnd` after work (success or failure)
-- Post-processes returned Outcome with `correlationId()`
-- Success outcomes carry correlation ID
-
-### BoundaryContext (new)
-- Holds covariates for a single call
-- Thread-safe (no shared mutable state)
+- `call(operation, work)` — executes work and returns Outcome
+- `call(operation, tags, work)` — with observability tags
+- Enriches failures with correlation ID if configured
+- Tags provide extensibility for domain-specific metadata
 
 ---
 
 ## Implementation Checklist
 
-### Phase 1: Core Types ✓
-
-- [x] **1.1 Create Covariate sealed interface**
-  - File: `src/main/java/org/javai/outcome/Covariate.java`
-  - Sealed interface with `String name()` method
-  - Permits: `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomCovariate`
-
-- [x] **1.2 Create DaysOfWeek record**
-  - File: `src/main/java/org/javai/outcome/DaysOfWeek.java`
-  - `record DaysOfWeek(Set<DayOfWeek> days) implements Covariate`
-  - Factory methods: `of(DayOfWeek...)`, `weekdays()`, `weekends()`
-
-- [x] **1.3 Create TimeOfDay record**
-  - File: `src/main/java/org/javai/outcome/TimeOfDay.java`
-  - `record TimeOfDay(int fromHour, int toHour) implements Covariate`
-  - Factory methods: `businessHours()`, `offHours()`
-
-- [x] **1.4 Create Region record**
-  - File: `src/main/java/org/javai/outcome/Region.java`
-  - `record Region(String value) implements Covariate`
-
-- [x] **1.5 Create CustomCovariate record**
-  - File: `src/main/java/org/javai/outcome/CustomCovariate.java`
-  - `record CustomCovariate(String name, String value) implements Covariate`
-
-- [x] **1.6 Add tests for Covariate types**
-  - File: `src/test/java/org/javai/outcome/CovariateTest.java`
-
-### Phase 2: Outcome Enhancement ✓
+### Phase 1: Outcome Enhancement ✓
 
 - [x] **2.1 Add correlationId to Outcome.Ok**
   - Modified `Ok<T>` record to include `Optional<String> correlationId`
@@ -130,155 +85,69 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 - [x] **2.6 Add tests for Outcome correlation ID**
   - File: `src/test/java/org/javai/outcome/OutcomeCorrelationTest.java`
 
-### Phase 3: OpReporter Enhancement
+### Phase 2: OpReporter ✓
 
-- [ ] **3.1 Add onStart method to OpReporter**
-  - `void onStart(String operation, String correlationId, Set<Covariate> covariates)`
-  - Default implementation: no-op
+- [x] **2.1 OpReporter interface**
+  - `void report(Failure failure)` — report a failure
+  - `void reportRetryAttempt(Failure, int, Duration)` — retry attempt with delay
+  - `void reportRetryExhausted(Failure, int)` — retries exhausted
+  - Default no-op implementations for retry methods
 
-- [ ] **3.2 Add onEnd method to OpReporter**
-  - `void onEnd(Outcome<?> outcome)`
-  - Default implementation: no-op
+### Phase 3: Boundary ✓
 
-- [ ] **3.3 Update onRetryAttempt signature**
-  - Change from `(Failure, int, Duration)` to `(Outcome.Fail<?>, int, Duration)`
-  - Correlation ID now comes from Outcome
+- [x] **3.1 Boundary class**
+  - `call(operation, work)` — executes work, returns Outcome
+  - `call(operation, tags, work)` — with observability tags
+  - Correlation ID supplier (configurable)
+  - Enriches failures with correlation ID and tags
 
-- [ ] **3.4 Update onRetryExhausted signature**
-  - Change from `(Failure, int)` to `(Outcome.Fail<?>, int)`
-  - Correlation ID now comes from Outcome
+- [x] **3.2 Add tests for Boundary**
+  - File: `src/test/java/org/javai/outcome/boundary/BoundaryTest.java`
 
-- [ ] **3.5 Deprecate old method signatures**
-  - Keep `reportRetryAttempt(Failure, int, Duration)` as deprecated
-  - Keep `reportRetryExhausted(Failure, int)` as deprecated
-  - Provide default implementations that delegate
+### Phase 4: OpReporter Implementations ✓
 
-- [ ] **3.6 Add tests for OpReporter lifecycle methods**
-  - File: `src/test/java/org/javai/outcome/ops/OpReporterLifecycleTest.java`
+- [x] **4.1 Log4jOpReporter**
+  - Logs failures with structured context
+  - Logs retry attempts and exhaustion
 
-### Phase 4: Boundary Enhancement
+- [x] **4.2 MetricsOpReporter**
+  - Outputs JSON for metrics integration
+  - Includes correlation ID and tags
 
-- [ ] **4.1 Create BoundaryContext class**
-  - File: `src/main/java/org/javai/outcome/boundary/BoundaryContext.java`
-  - Holds: `Boundary boundary`, `Set<Covariate> covariates`
-  - Has `call(operation, work)` method
+- [x] **4.3 CompositeOpReporter**
+  - Fans out to multiple reporters
 
-- [ ] **4.2 Add covariates() method to Boundary**
-  - `BoundaryContext covariates(Covariate... covariates)`
-  - Returns new BoundaryContext with covariates
+- [x] **4.4 Tests for all reporters**
 
-- [ ] **4.3 Add correlation ID generation to Boundary**
-  - Generate UUID-based correlation ID at start of each call
-  - Or use supplier if configured
+### Phase 5: Retrier Integration ✓
 
-- [ ] **4.4 Emit onStart event**
-  - Call `reporter.onStart(operation, correlationId, covariates)` before work
+- [x] **5.1 Retrier uses OpReporter methods**
+  - `reportRetryAttempt(Failure, int, Duration)`
+  - `reportRetryExhausted(Failure, int)`
 
-- [ ] **4.5 Emit onEnd event**
-  - Call `reporter.onEnd(outcome)` after work completes
-  - Both success and failure paths
+- [x] **5.2 Correlation ID flows through retries**
+  - Failure carries correlation ID through retry sequence
 
-- [ ] **4.6 Post-process Outcome with correlation ID**
-  - Call `outcome.correlationId(correlationId)` before returning
-  - Applies to both Ok and Fail outcomes
+- [x] **5.3 Retrier tests**
+  - File: `src/test/java/org/javai/outcome/retry/RetrierTest.java`
 
-- [ ] **4.7 Update handleException to use new model**
-  - Create `Outcome.Fail` with correlation ID
-  - Use new `onRetryAttempt` signature in Retrier integration
+### Phase 6: Documentation
 
-- [ ] **4.8 Add tests for Boundary lifecycle events**
-  - File: `src/test/java/org/javai/outcome/boundary/BoundaryLifecycleTest.java`
+- [x] **6.1 Update README.md**
+  - Document Boundary and Retrier usage
+  - Document OpReporter implementations
 
-- [ ] **4.9 Add tests for Boundary fluent API**
-  - File: `src/test/java/org/javai/outcome/boundary/BoundaryFluentApiTest.java`
+- [x] **6.2 Update Javadoc**
+  - All classes and methods documented
 
-### Phase 5: Update Existing OpReporter Implementations
-
-- [ ] **5.1 Update Log4jOpReporter**
-  - Implement `onStart`, `onEnd` methods
-  - Update retry methods to use new signatures
-
-- [ ] **5.2 Update MetricsOpReporter**
-  - Implement `onStart`, `onEnd` methods
-  - Include correlation ID and covariates in JSON output
-
-- [ ] **5.3 Update SlackOpReporter**
-  - Implement `onStart`, `onEnd` methods (if applicable)
-  - Or keep as failure-only reporter
-
-- [ ] **5.4 Update TeamsOpReporter**
-  - Implement `onStart`, `onEnd` methods (if applicable)
-  - Or keep as failure-only reporter
-
-- [ ] **5.5 Update CompositeOpReporter**
-  - Delegate new lifecycle methods to all reporters
-
-- [ ] **5.6 Update tests for all reporters**
-
-### Phase 6: Update Retrier Integration
-
-- [ ] **6.1 Update Retrier to use new OpReporter methods**
-  - Use `onRetryAttempt(Outcome.Fail<?>, int, Duration)`
-  - Use `onRetryExhausted(Outcome.Fail<?>, int)`
-
-- [ ] **6.2 Ensure correlation ID flows through retries**
-  - Same correlation ID for all attempts in a retry sequence
-
-- [ ] **6.3 Update Retrier tests**
-
-### Phase 7: Documentation
-
-- [ ] **7.1 Update README.md**
-  - Document new fluent API
-  - Document lifecycle events
-  - Document covariates
-
-- [ ] **7.2 Update Javadoc**
-  - All new classes and methods
-  - Update existing Javadoc for changed signatures
-
-- [ ] **7.3 Create migration guide**
-  - For users upgrading from previous version
-  - Document deprecated methods
+- [ ] **6.3 Create user guide**
+  - Comprehensive guide for Outcome framework
 
 ---
 
-## Breaking Changes
+## Design Notes
 
-| Change | Impact | Migration |
-|--------|--------|-----------|
-| `Outcome.Ok` record signature | Existing pattern matches may break | Add `correlationId` to pattern or use accessor |
-| `Outcome.Fail` record signature | Existing pattern matches may break | Add `correlationId` to pattern or use accessor |
-| `OpReporter.reportRetryAttempt` signature | Implementations need update | Deprecated overload provided |
-| `OpReporter.reportRetryExhausted` signature | Implementations need update | Deprecated overload provided |
-
----
-
-## Non-Breaking Additions
-
-| Addition | Description |
-|----------|-------------|
-| `Covariate` sealed interface | New type for specifying covariates |
-| `boundary.covariates(...)` | Fluent API for specifying covariates |
-| `OpReporter.onStart()` | New lifecycle event (default no-op) |
-| `OpReporter.onEnd()` | New lifecycle event (default no-op) |
-| `Outcome.correlationId()` | New accessor returning `Optional<String>` |
-| `Outcome.correlationId(String)` | New method returning Outcome with correlation ID |
-
----
-
-## Open Questions
-
-1. **Package location for Covariate types**: Should they be in `org.javai.outcome` or `org.javai.outcome.covariate`?
-
-2. **Backward compatibility for Outcome records**: Adding `correlationId` to records changes their canonical constructor. Should we provide a compatibility layer?
-
-3. **Default correlation ID generation**: Should Boundary always generate UUIDs, or should it be configurable?
-
----
-
-## Notes
-
-- Post-processing approach means existing lambda signatures don't change
-- Covariates are optional — calls without `covariates()` work as before
-- Lifecycle events have default no-op implementations for backward compatibility
+- Tags provide extensibility — domain-specific metadata flows through the system
+- Correlation ID is optional and configurable via supplier
+- OpReporter default implementations are no-op for backward compatibility
+- Retrier reports retry events to OpReporter for observability
