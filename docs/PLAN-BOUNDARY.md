@@ -23,14 +23,14 @@ void reportRetryExhausted(Failure failure, int totalAttempts);
 ```
 - Only failure events
 - No start/end lifecycle events
-- No Factor support
+- No Covariate support
 
 ### Boundary
 - `call(operation, work)` — returns `Outcome<T>`
 - `call(operation, tags, work)` — with tags
 - Reports failures only (via `reporter.report(failure)`)
 - No lifecycle events (onStart/onEnd)
-- No fluent API for factors
+- No fluent API for covariates
 - Correlation ID only used in failure path
 - Success outcomes have no correlation ID
 
@@ -44,21 +44,21 @@ void reportRetryExhausted(Failure failure, int totalAttempts);
 - `correlationId()` method returning `Optional<String>`
 - `correlationId(String)` method for post-processing
 
-### Factor (new)
+### Covariate (new)
 - Sealed interface with predefined implementations
-- `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomFactor`
+- `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomCovariate`
 
 ### OpReporter
 ```java
 void report(Failure failure);  // standalone, no boundary context
-void onStart(String operation, String correlationId, Set<Factor> factors);
+void onStart(String operation, String correlationId, Set<Covariate> covariates);
 void onEnd(Outcome<?> outcome);
 void onRetryAttempt(Outcome.Fail<?> failure, int attemptNumber, Duration delay);
 void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 ```
 
 ### Boundary
-- Fluent API: `boundary.factors(...).call(operation, work)`
+- Fluent API: `boundary.covariates(...).call(operation, work)`
 - Generates correlation ID for every call
 - Emits `onStart` before work
 - Emits `onEnd` after work (success or failure)
@@ -66,7 +66,7 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 - Success outcomes carry correlation ID
 
 ### BoundaryContext (new)
-- Holds factors for a single call
+- Holds covariates for a single call
 - Thread-safe (no shared mutable state)
 
 ---
@@ -75,31 +75,31 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 ### Phase 1: Core Types ✓
 
-- [x] **1.1 Create Factor sealed interface**
-  - File: `src/main/java/org/javai/outcome/Factor.java`
+- [x] **1.1 Create Covariate sealed interface**
+  - File: `src/main/java/org/javai/outcome/Covariate.java`
   - Sealed interface with `String name()` method
-  - Permits: `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomFactor`
+  - Permits: `DaysOfWeek`, `TimeOfDay`, `Region`, `CustomCovariate`
 
 - [x] **1.2 Create DaysOfWeek record**
   - File: `src/main/java/org/javai/outcome/DaysOfWeek.java`
-  - `record DaysOfWeek(Set<DayOfWeek> days) implements Factor`
+  - `record DaysOfWeek(Set<DayOfWeek> days) implements Covariate`
   - Factory methods: `of(DayOfWeek...)`, `weekdays()`, `weekends()`
 
 - [x] **1.3 Create TimeOfDay record**
   - File: `src/main/java/org/javai/outcome/TimeOfDay.java`
-  - `record TimeOfDay(int fromHour, int toHour) implements Factor`
+  - `record TimeOfDay(int fromHour, int toHour) implements Covariate`
   - Factory methods: `businessHours()`, `offHours()`
 
 - [x] **1.4 Create Region record**
   - File: `src/main/java/org/javai/outcome/Region.java`
-  - `record Region(String value) implements Factor`
+  - `record Region(String value) implements Covariate`
 
-- [x] **1.5 Create CustomFactor record**
-  - File: `src/main/java/org/javai/outcome/CustomFactor.java`
-  - `record CustomFactor(String name, String value) implements Factor`
+- [x] **1.5 Create CustomCovariate record**
+  - File: `src/main/java/org/javai/outcome/CustomCovariate.java`
+  - `record CustomCovariate(String name, String value) implements Covariate`
 
-- [x] **1.6 Add tests for Factor types**
-  - File: `src/test/java/org/javai/outcome/FactorTest.java`
+- [x] **1.6 Add tests for Covariate types**
+  - File: `src/test/java/org/javai/outcome/CovariateTest.java`
 
 ### Phase 2: Outcome Enhancement ✓
 
@@ -133,7 +133,7 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 ### Phase 3: OpReporter Enhancement
 
 - [ ] **3.1 Add onStart method to OpReporter**
-  - `void onStart(String operation, String correlationId, Set<Factor> factors)`
+  - `void onStart(String operation, String correlationId, Set<Covariate> covariates)`
   - Default implementation: no-op
 
 - [ ] **3.2 Add onEnd method to OpReporter**
@@ -160,19 +160,19 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 - [ ] **4.1 Create BoundaryContext class**
   - File: `src/main/java/org/javai/outcome/boundary/BoundaryContext.java`
-  - Holds: `Boundary boundary`, `Set<Factor> factors`
+  - Holds: `Boundary boundary`, `Set<Covariate> covariates`
   - Has `call(operation, work)` method
 
-- [ ] **4.2 Add factors() method to Boundary**
-  - `BoundaryContext factors(Factor... factors)`
-  - Returns new BoundaryContext with factors
+- [ ] **4.2 Add covariates() method to Boundary**
+  - `BoundaryContext covariates(Covariate... covariates)`
+  - Returns new BoundaryContext with covariates
 
 - [ ] **4.3 Add correlation ID generation to Boundary**
   - Generate UUID-based correlation ID at start of each call
   - Or use supplier if configured
 
 - [ ] **4.4 Emit onStart event**
-  - Call `reporter.onStart(operation, correlationId, factors)` before work
+  - Call `reporter.onStart(operation, correlationId, covariates)` before work
 
 - [ ] **4.5 Emit onEnd event**
   - Call `reporter.onEnd(outcome)` after work completes
@@ -200,7 +200,7 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 - [ ] **5.2 Update MetricsOpReporter**
   - Implement `onStart`, `onEnd` methods
-  - Include correlation ID and factors in JSON output
+  - Include correlation ID and covariates in JSON output
 
 - [ ] **5.3 Update SlackOpReporter**
   - Implement `onStart`, `onEnd` methods (if applicable)
@@ -231,7 +231,7 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 - [ ] **7.1 Update README.md**
   - Document new fluent API
   - Document lifecycle events
-  - Document factors
+  - Document covariates
 
 - [ ] **7.2 Update Javadoc**
   - All new classes and methods
@@ -258,8 +258,8 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 | Addition | Description |
 |----------|-------------|
-| `Factor` sealed interface | New type for specifying factors |
-| `boundary.factors(...)` | Fluent API for specifying factors |
+| `Covariate` sealed interface | New type for specifying covariates |
+| `boundary.covariates(...)` | Fluent API for specifying covariates |
 | `OpReporter.onStart()` | New lifecycle event (default no-op) |
 | `OpReporter.onEnd()` | New lifecycle event (default no-op) |
 | `Outcome.correlationId()` | New accessor returning `Optional<String>` |
@@ -269,7 +269,7 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 
 ## Open Questions
 
-1. **Package location for Factor types**: Should they be in `org.javai.outcome` or `org.javai.outcome.factor`?
+1. **Package location for Covariate types**: Should they be in `org.javai.outcome` or `org.javai.outcome.covariate`?
 
 2. **Backward compatibility for Outcome records**: Adding `correlationId` to records changes their canonical constructor. Should we provide a compatibility layer?
 
@@ -280,5 +280,5 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 ## Notes
 
 - Post-processing approach means existing lambda signatures don't change
-- Factors are optional — calls without `factors()` work as before
+- Covariates are optional — calls without `covariates()` work as before
 - Lifecycle events have default no-op implementations for backward compatibility

@@ -1,7 +1,7 @@
 package org.javai.outcome;
 
 /**
- * A factor representing a time-of-day range for subgroup membership.
+ * A covariate representing a time-of-day range for subgroup membership.
  *
  * <p>Events occurring within this time range belong to this subgroup.
  * Use this to stratify analysis by time patterns:
@@ -23,7 +23,7 @@ package org.javai.outcome;
  * @param fromHour the starting hour (0-23, inclusive)
  * @param toHour the ending hour (0-23, exclusive)
  */
-public record TimeOfDay(int fromHour, int toHour) implements Factor {
+public record TimeOfDay(int fromHour, int toHour) implements Covariate {
 
     /**
      * Canonical constructor with validation.

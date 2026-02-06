@@ -3,10 +3,10 @@ package org.javai.outcome;
 import java.util.Objects;
 
 /**
- * A factor representing a geographic or logical region for subgroup membership.
+ * A covariate representing a geographic or logical region for subgroup membership.
  *
  * <p>Events from this region belong to this subgroup. Use this to stratify
- * analysis by deployment region, data center, or other geographic factors:
+ * analysis by deployment region, data center, or other geographic covariates:
  *
  * <pre>{@code
  * // AWS regions
@@ -20,7 +20,7 @@ import java.util.Objects;
  *
  * @param value the region identifier
  */
-public record Region(String value) implements Factor {
+public record Region(String value) implements Covariate {
 
     /**
      * Canonical constructor with validation.

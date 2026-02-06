@@ -8,39 +8,39 @@ import java.util.Set;
 import static java.time.DayOfWeek.*;
 import static org.assertj.core.api.Assertions.*;
 
-class FactorTest {
+class CovariateTest {
 
     // === DaysOfWeek Tests ===
 
     @Test
-    void daysOfWeek_of_createsFactor() {
-        DaysOfWeek factor = DaysOfWeek.of(MONDAY, WEDNESDAY, FRIDAY);
+    void daysOfWeek_of_createsCovariate() {
+        DaysOfWeek covariate = DaysOfWeek.of(MONDAY, WEDNESDAY, FRIDAY);
 
-        assertThat(factor.days()).containsExactlyInAnyOrder(MONDAY, WEDNESDAY, FRIDAY);
-        assertThat(factor.name()).isEqualTo("days_of_week");
+        assertThat(covariate.days()).containsExactlyInAnyOrder(MONDAY, WEDNESDAY, FRIDAY);
+        assertThat(covariate.name()).isEqualTo("days_of_week");
     }
 
     @Test
     void daysOfWeek_weekdays_containsMonThroughFri() {
-        DaysOfWeek factor = DaysOfWeek.weekdays();
+        DaysOfWeek covariate = DaysOfWeek.weekdays();
 
-        assertThat(factor.days()).containsExactlyInAnyOrder(
+        assertThat(covariate.days()).containsExactlyInAnyOrder(
                 MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
         );
     }
 
     @Test
     void daysOfWeek_weekends_containsSatAndSun() {
-        DaysOfWeek factor = DaysOfWeek.weekends();
+        DaysOfWeek covariate = DaysOfWeek.weekends();
 
-        assertThat(factor.days()).containsExactlyInAnyOrder(SATURDAY, SUNDAY);
+        assertThat(covariate.days()).containsExactlyInAnyOrder(SATURDAY, SUNDAY);
     }
 
     @Test
     void daysOfWeek_singleDay_works() {
-        DaysOfWeek factor = DaysOfWeek.of(MONDAY);
+        DaysOfWeek covariate = DaysOfWeek.of(MONDAY);
 
-        assertThat(factor.days()).containsExactly(MONDAY);
+        assertThat(covariate.days()).containsExactly(MONDAY);
     }
 
     @Test
@@ -66,9 +66,9 @@ class FactorTest {
 
     @Test
     void daysOfWeek_daysAreImmutable() {
-        DaysOfWeek factor = DaysOfWeek.of(MONDAY, TUESDAY);
+        DaysOfWeek covariate = DaysOfWeek.of(MONDAY, TUESDAY);
 
-        assertThatThrownBy(() -> factor.days().add(WEDNESDAY))
+        assertThatThrownBy(() -> covariate.days().add(WEDNESDAY))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -76,27 +76,27 @@ class FactorTest {
 
     @Test
     void timeOfDay_businessHours_is9to17() {
-        TimeOfDay factor = TimeOfDay.businessHours();
+        TimeOfDay covariate = TimeOfDay.businessHours();
 
-        assertThat(factor.fromHour()).isEqualTo(9);
-        assertThat(factor.toHour()).isEqualTo(17);
-        assertThat(factor.name()).isEqualTo("time_of_day");
+        assertThat(covariate.fromHour()).isEqualTo(9);
+        assertThat(covariate.toHour()).isEqualTo(17);
+        assertThat(covariate.name()).isEqualTo("time_of_day");
     }
 
     @Test
     void timeOfDay_offHours_is17to9() {
-        TimeOfDay factor = TimeOfDay.offHours();
+        TimeOfDay covariate = TimeOfDay.offHours();
 
-        assertThat(factor.fromHour()).isEqualTo(17);
-        assertThat(factor.toHour()).isEqualTo(9);
+        assertThat(covariate.fromHour()).isEqualTo(17);
+        assertThat(covariate.toHour()).isEqualTo(9);
     }
 
     @Test
     void timeOfDay_customRange_works() {
-        TimeOfDay factor = new TimeOfDay(8, 20);
+        TimeOfDay covariate = new TimeOfDay(8, 20);
 
-        assertThat(factor.fromHour()).isEqualTo(8);
-        assertThat(factor.toHour()).isEqualTo(20);
+        assertThat(covariate.fromHour()).isEqualTo(8);
+        assertThat(covariate.toHour()).isEqualTo(20);
     }
 
     @Test
@@ -131,10 +131,10 @@ class FactorTest {
 
     @Test
     void region_createsWithValue() {
-        Region factor = new Region("us-east-1");
+        Region covariate = new Region("us-east-1");
 
-        assertThat(factor.value()).isEqualTo("us-east-1");
-        assertThat(factor.name()).isEqualTo("region");
+        assertThat(covariate.value()).isEqualTo("us-east-1");
+        assertThat(covariate.name()).isEqualTo("region");
     }
 
     @Test
@@ -155,72 +155,72 @@ class FactorTest {
                 .hasMessageContaining("value must not be blank");
     }
 
-    // === CustomFactor Tests ===
+    // === CustomCovariate Tests ===
 
     @Test
-    void customFactor_createsWithNameAndValue() {
-        CustomFactor factor = new CustomFactor("customer_tier", "premium");
+    void customCovariate_createsWithNameAndValue() {
+        CustomCovariate covariate = new CustomCovariate("customer_tier", "premium");
 
-        assertThat(factor.name()).isEqualTo("customer_tier");
-        assertThat(factor.value()).isEqualTo("premium");
+        assertThat(covariate.name()).isEqualTo("customer_tier");
+        assertThat(covariate.value()).isEqualTo("premium");
     }
 
     @Test
-    void customFactor_rejectsNullName() {
-        assertThatThrownBy(() -> new CustomFactor(null, "value"))
+    void customCovariate_rejectsNullName() {
+        assertThatThrownBy(() -> new CustomCovariate(null, "value"))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("name must not be null");
     }
 
     @Test
-    void customFactor_rejectsNullValue() {
-        assertThatThrownBy(() -> new CustomFactor("name", null))
+    void customCovariate_rejectsNullValue() {
+        assertThatThrownBy(() -> new CustomCovariate("name", null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("value must not be null");
     }
 
     @Test
-    void customFactor_rejectsBlankName() {
-        assertThatThrownBy(() -> new CustomFactor("", "value"))
+    void customCovariate_rejectsBlankName() {
+        assertThatThrownBy(() -> new CustomCovariate("", "value"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("name must not be blank");
 
-        assertThatThrownBy(() -> new CustomFactor("   ", "value"))
+        assertThatThrownBy(() -> new CustomCovariate("   ", "value"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("name must not be blank");
     }
 
     @Test
-    void customFactor_allowsEmptyValue() {
+    void customCovariate_allowsEmptyValue() {
         // Empty value is allowed (blank name is not)
-        CustomFactor factor = new CustomFactor("feature_flag", "");
-        assertThat(factor.value()).isEmpty();
+        CustomCovariate covariate = new CustomCovariate("feature_flag", "");
+        assertThat(covariate.value()).isEmpty();
     }
 
-    // === Factor Sealed Interface Tests ===
+    // === Covariate Sealed Interface Tests ===
 
     @Test
-    void factor_allImplementationsArePermitted() {
-        Factor daysOfWeek = DaysOfWeek.weekdays();
-        Factor timeOfDay = TimeOfDay.businessHours();
-        Factor region = new Region("us-east-1");
-        Factor custom = new CustomFactor("tier", "premium");
+    void covariate_allImplementationsArePermitted() {
+        Covariate daysOfWeek = DaysOfWeek.weekdays();
+        Covariate timeOfDay = TimeOfDay.businessHours();
+        Covariate region = new Region("us-east-1");
+        Covariate custom = new CustomCovariate("tier", "premium");
 
-        assertThat(daysOfWeek).isInstanceOf(Factor.class);
-        assertThat(timeOfDay).isInstanceOf(Factor.class);
-        assertThat(region).isInstanceOf(Factor.class);
-        assertThat(custom).isInstanceOf(Factor.class);
+        assertThat(daysOfWeek).isInstanceOf(Covariate.class);
+        assertThat(timeOfDay).isInstanceOf(Covariate.class);
+        assertThat(region).isInstanceOf(Covariate.class);
+        assertThat(custom).isInstanceOf(Covariate.class);
     }
 
     @Test
-    void factor_canBeUsedInPatternMatching() {
-        Factor factor = DaysOfWeek.weekdays();
+    void covariate_canBeUsedInPatternMatching() {
+        Covariate covariate = DaysOfWeek.weekdays();
 
-        String result = switch (factor) {
+        String result = switch (covariate) {
             case DaysOfWeek d -> "days: " + d.days().size();
             case TimeOfDay t -> "time: " + t.fromHour() + "-" + t.toHour();
             case Region r -> "region: " + r.value();
-            case CustomFactor c -> "custom: " + c.name() + "=" + c.value();
+            case CustomCovariate c -> "custom: " + c.name() + "=" + c.value();
         };
 
         assertThat(result).isEqualTo("days: 5");

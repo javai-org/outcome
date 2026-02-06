@@ -7,7 +7,7 @@ import java.util.Set;
 import static java.time.DayOfWeek.*;
 
 /**
- * A factor representing days of the week for subgroup membership.
+ * A covariate representing days of the week for subgroup membership.
  *
  * <p>Events occurring on days in this set belong to this subgroup.
  * Use this to stratify analysis by day patterns:
@@ -28,7 +28,7 @@ import static java.time.DayOfWeek.*;
  *
  * @param days the days that define this subgroup
  */
-public record DaysOfWeek(Set<DayOfWeek> days) implements Factor {
+public record DaysOfWeek(Set<DayOfWeek> days) implements Covariate {
 
     /**
      * Canonical constructor with validation.

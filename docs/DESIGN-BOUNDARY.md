@@ -138,7 +138,7 @@ public interface OpReporter {
     void report(Failure failure);
 
     // Operation started
-    void onStart(String operation, String correlationId, Set<Factor> factors);
+    void onStart(String operation, String correlationId, Set<Covariate> covariates);
 
     // Retry attempt (middle event) — correlation ID from outcome
     void onRetryAttempt(Outcome.Fail<?> failure, int attemptNumber, Duration delay);
@@ -312,29 +312,29 @@ Trying to protect developers from every possible misuse:
 
 ---
 
-### 6. Factors as First-Class Types
+### 6. Covariates as First-Class Types
 
-**Decision:** Factors are first-class types, not string maps. Outcome predefines common factors and allows custom factors for domain-specific needs.
+**Decision:** Covariates are first-class types, not string maps. Outcome predefines common covariates and allows custom covariates for domain-specific needs.
 
-**Terminology:** Outcome uses "factors" (developer-friendly) rather than "covariates" (statistical). Signal may use "covariates" internally — the translation happens in `SignalOpReporter`.
+**Terminology:** Outcome uses "covariates" to align with PUnit's terminology. This ensures consistency when PUnit deprecates its own Covariate type in favor of Outcome's.
 
 **Justification:**
 
-Factors define **subgroup membership criteria** — things that affect an operation's behavior. They are not arbitrary metadata — they have analytical meaning. A factor like `DaysOfWeek([MON, TUE, WED, THU, FRI])` declares: "Events occurring on these days belong to this subgroup."
+Covariates define **subgroup membership criteria** — things that affect an operation's behavior. They are not arbitrary metadata — they have analytical meaning. A covariate like `DaysOfWeek([MON, TUE, WED, THU, FRI])` declares: "Events occurring on these days belong to this subgroup."
 
 This is fundamentally different from tags (general metadata for observability). Mixing them in a `Map<String, String>` obscures the intent and creates problems:
 - Consumers can't distinguish analytical dimensions from incidental metadata
 - String keys invite inconsistency (`"region"` vs `"Region"` vs `"REGION"`)
 - High-cardinality tags could poison statistical analysis
 
-**Predefined Factors:**
+**Predefined Covariates:**
 
 ```java
-public sealed interface Factor permits DaysOfWeek, TimeOfDay, Region, CustomFactor {
+public sealed interface Covariate permits DaysOfWeek, TimeOfDay, Region, CustomCovariate {
     String name();
 }
 
-public record DaysOfWeek(Set<DayOfWeek> days) implements Factor {
+public record DaysOfWeek(Set<DayOfWeek> days) implements Covariate {
 
     public static DaysOfWeek of(DayOfWeek... days) {
         return new DaysOfWeek(Set.of(days));
@@ -352,7 +352,7 @@ public record DaysOfWeek(Set<DayOfWeek> days) implements Factor {
     public String name() { return "days_of_week"; }
 }
 
-public record TimeOfDay(int fromHour, int toHour) implements Factor {
+public record TimeOfDay(int fromHour, int toHour) implements Covariate {
 
     public static TimeOfDay businessHours() {
         return new TimeOfDay(9, 17);
@@ -366,24 +366,24 @@ public record TimeOfDay(int fromHour, int toHour) implements Factor {
     public String name() { return "time_of_day"; }
 }
 
-public record Region(String value) implements Factor {
+public record Region(String value) implements Covariate {
     @Override
     public String name() { return "region"; }
 }
 
-public record CustomFactor(String name, String value) implements Factor {}
+public record CustomCovariate(String name, String value) implements Covariate {}
 ```
 
-**Fluent API for Specifying Factors:**
+**Fluent API for Specifying Covariates:**
 
-Developers specify factors via a fluent API on Boundary:
+Developers specify covariates via a fluent API on Boundary:
 
 ```java
-// Without factors (default)
+// Without covariates (default)
 boundary.call("UserService.fetch", () -> userService.fetch(id));
 
-// With factors
-boundary.factors(DaysOfWeek.weekdays(), TimeOfDay.businessHours())
+// With covariates
+boundary.covariates(DaysOfWeek.weekdays(), TimeOfDay.businessHours())
     .call("UserService.fetch", () -> userService.fetch(id));
 ```
 
@@ -392,8 +392,8 @@ Implementation:
 ```java
 public final class Boundary {
 
-    public BoundaryContext factors(Factor... factors) {
-        return new BoundaryContext(this, Set.of(factors));
+    public BoundaryContext covariates(Covariate... covariates) {
+        return new BoundaryContext(this, Set.of(covariates));
     }
 
     public <T> Outcome<T> call(String operation, ThrowingSupplier<T, ?> work) {
@@ -403,11 +403,11 @@ public final class Boundary {
 
 public final class BoundaryContext {
     private final Boundary boundary;
-    private final Set<Factor> factors;
+    private final Set<Covariate> covariates;
 
     public <T> Outcome<T> call(String operation, ThrowingSupplier<T, ?> work) {
         String correlationId = generateCorrelationId();
-        boundary.reporter.onStart(operation, correlationId, factors);
+        boundary.reporter.onStart(operation, correlationId, covariates);
         // ... execute work, handle exceptions ...
         boundary.reporter.onEnd(outcome);
         return outcome;
@@ -415,9 +415,9 @@ public final class BoundaryContext {
 }
 ```
 
-**Factor Semantics:**
+**Covariate Semantics:**
 
-Factors define which events belong to a subgroup:
+Covariates define which events belong to a subgroup:
 
 - `DaysOfWeek.weekdays()` — events on Mon-Fri belong to this subgroup
 - `DaysOfWeek.of(MONDAY)` — only Monday events (weekly sampling)
@@ -428,14 +428,14 @@ The developer declares: "For this operation, analyze events matching these crite
 
 **Separation of Concerns:**
 
-Outcome defines factor *data*. It does not implement matching logic.
+Outcome defines covariate *data*. It does not implement matching logic.
 
-Signal (or any consumer) interprets factors and implements `matches(Instant, Factor)` to route events to appropriate subgroups. This keeps Outcome focused on data representation while allowing consumers to implement their own routing logic.
+Signal (or any consumer) interprets covariates and implements `matches(Instant, Covariate)` to route events to appropriate subgroups. This keeps Outcome focused on data representation while allowing consumers to implement their own routing logic.
 
-**Factors vs Tags:**
+**Covariates vs Tags:**
 
-| Aspect | Factors | Tags |
-|--------|---------|------|
+| Aspect | Covariates | Tags |
+|--------|------------|------|
 | **Purpose** | Define statistical subgroups | General observability metadata |
 | **Type safety** | First-class types | String maps |
 | **Cardinality** | Must be bounded | Can be high-cardinality |
@@ -591,7 +591,7 @@ Signal is one of many possible OpReporter implementations. Boundary has no direc
 | **Correlation ID** | Intrinsic to Outcome (optional String); distinguishes standalone vs correlated events |
 | **Execution model** | Synchronous crossings only |
 | **Async approach** | Virtual threads; reactive frameworks not accommodated |
-| **Factors** | First-class types (DaysOfWeek, TimeOfDay, Region, Custom); fluent API `boundary.factors(...)` |
+| **Covariates** | First-class types (DaysOfWeek, TimeOfDay, Region, Custom); fluent API `boundary.covariates(...)` |
 | **Developer model** | Responsible professionals; no excessive guardrails |
 
 ---
