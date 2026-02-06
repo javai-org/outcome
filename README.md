@@ -1,6 +1,10 @@
 # Outcome
 
-A Java framework for treating operational failures as data, not exceptions.
+**A bridge between deterministic and non-deterministic worlds.**
+
+Most application code is deterministic. Given the same inputs, it produces the same outputs. But applications routinely encounter non-determinism — external services like databases, APIs, and payment gateways that may fail unpredictably, or internal stochastic algorithms like Monte Carlo simulations and LLM interactions whose outputs vary by design.
+
+Outcome provides a formal boundary where deterministic code meets non-deterministic operations — whether those operations call external services or invoke probabilistic algorithms. At this boundary, indeterminacy is acknowledged, observed, and converted into one of two well-defined states: **Ok** or **Fail**. From there, application code flows deterministically again — handling success or failure through normal control flow, not exception handling.
 
 ## The Problem
 
@@ -262,13 +266,23 @@ return switch (result) {
 };
 ```
 
-## Requirements
-
-- Java 21+
-
 ## Philosophy
 
-This framework embodies a simple principle: **different failure modes deserve different treatment**.
+### The Boundary Principle
+
+Software systems are composed of two fundamentally different domains:
+
+**Deterministic code** — your application logic. Given the same inputs, it produces the same outputs. It can be reasoned about, tested exhaustively, and trusted to behave predictably.
+
+**Non-deterministic services** — databases, APIs, networks, external systems. They may succeed, fail, timeout, return garbage, or simply not respond. No amount of careful coding eliminates this uncertainty.
+
+Outcome's central insight is that **the boundary between these domains deserves first-class treatment**. The `Boundary` component marks these crossing points explicitly. Indeterminacy is acknowledged, observed, and resolved into a well-defined `Outcome` — either `Ok` or `Fail`. From there, deterministic code resumes.
+
+This isn't defensive programming. It's architectural honesty.
+
+### Failure Modes
+
+Different failure modes deserve different treatment:
 
 | Category        | Examples                                       | Handling                             | Recovery                            |
 |-----------------|------------------------------------------------|--------------------------------------|-------------------------------------|
@@ -276,14 +290,27 @@ This framework embodies a simple principle: **different failure modes deserve di
 | **Defect**      | NullPointerException, IllegalArgumentException | Propagate, page operator             | Human fixes code/config             |
 | **Fatal**       | OutOfMemoryError, StackOverflowError           | Don't catch                          | Infrastructure restarts process     |
 
-A socket timeout isn't exceptional—it's Tuesday. The network is unreliable by nature. Treating timeouts as exceptions is like treating rain as an exception to weather.
+A socket timeout isn't exceptional — it's Tuesday. The network is unreliable by nature. Treating timeouts as exceptions is like treating rain as an exception to weather.
 
-By representing expected failures as data, we gain:
+### What We Gain
+
+By representing expected failures as data:
+
 - **Composition** — failures flow through `flatMap` and `recover`
 - **Type safety** — the compiler ensures handling
 - **Consistency** — one failure model across the codebase
-- **Observability** — structured reporting, not scattered logs
+- **Observability** — structured reporting at every boundary crossing
 
-Defects (unchecked exceptions) propagate to the top of the stack where `OperationalExceptionHandler` pages an operator. Terminal errors (`Error` subclasses) are never caught—the JVM is compromised, and the only sensible response is to let the process die.
+Defects (unchecked exceptions) propagate to the top of the stack where `OperationalExceptionHandler` pages an operator. Terminal errors (`Error` subclasses) are never caught — the JVM is compromised, and the only sensible response is to let the process die.
+
+### The Outcome Principle
 
 **Recoverable failures flow as values. Defects crash and page. Terminal errors terminate.**
+
+## Requirements
+
+- Java 21+
+
+## License
+
+Attribution Required License (ARL-1.0) - see [LICENSE](LICENSE) for details.
