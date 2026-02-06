@@ -56,10 +56,10 @@ Boundary's role is instrumentation and observation, not translation. Exception t
 ```
 
 Both methods:
-1. Record start time
-2. Invoke work
-3. Record end time
-4. Report the event (operation, duration, outcome, tags)
+1. Generate correlation ID
+2. Emit start event (operation, correlation ID, timestamp, covariates)
+3. Invoke work
+4. Emit end event (operation, correlation ID, timestamp, outcome, covariates)
 5. Return the outcome
 
 The only difference is whether translation is needed. That's an implementation detail.
@@ -68,9 +68,16 @@ The only difference is whether translation is needed. That's an implementation d
 
 ### 2. Lifecycle Event Reporting
 
-**Decision:** Boundary reports the full lifecycle of each invocation — start, end, and outcome — not just failures.
+**Decision:** Boundary reports **two distinct events** per invocation — a start event and an end event — not a single event with embedded duration.
 
 **Justification:**
+
+A Boundary operation involves two crossings:
+
+1. **Outbound crossing** — the moment control leaves deterministic code and enters the fallible operation
+2. **Inbound crossing** — the moment control returns with an outcome
+
+Each crossing is an event. Each event has a timestamp. Duration is *derived* by correlating the two events, not embedded in either. This is conceptually cleaner — each event represents a point in time, not a span.
 
 Failure-only reporting is insufficient for:
 - **Latency monitoring:** Signal needs duration of successful operations, not just failures
@@ -81,13 +88,21 @@ By reporting lifecycle events, Boundary becomes the single instrumentation point
 
 **Event Data:**
 
-Each Boundary crossing produces an event containing:
+Start event:
 - Operation name
-- Start timestamp
-- Duration
+- Correlation ID (to link with end event)
+- Timestamp
+- Covariates
+
+End event:
+- Operation name
+- Correlation ID (matches start event)
+- Timestamp
 - Outcome (Ok or Fail)
-- Attempt number (for retry scenarios)
-- Covariates/tags
+- Failure details (if Fail)
+- Covariates
+
+Duration is computed by the consumer: `end.timestamp - start.timestamp`
 
 **Consumer Filtering:**
 
@@ -185,6 +200,94 @@ Trying to protect developers from every possible misuse:
 - Automatic detection of event loop blocking
 - Reactive framework adapters
 - Callback-based APIs
+
+---
+
+### 6. Covariates as First-Class Types
+
+**Decision:** Covariates are first-class types, not string maps. Outcome predefines common covariates and allows custom covariates for domain-specific needs.
+
+**Justification:**
+
+Covariates define **subgroup membership criteria** for statistical analysis. They are not arbitrary metadata — they have analytical meaning. A covariate like `DaysOfWeek([MON, TUE, WED, THU, FRI])` declares: "Events occurring on these days belong to this subgroup."
+
+This is fundamentally different from tags (general metadata for observability). Mixing them in a `Map<String, String>` obscures the intent and creates problems:
+- Consumers can't distinguish analytical dimensions from incidental metadata
+- String keys invite inconsistency (`"region"` vs `"Region"` vs `"REGION"`)
+- High-cardinality tags could poison statistical analysis
+
+**Predefined Covariates:**
+
+```java
+public sealed interface Covariate permits DaysOfWeek, TimeOfDay, Region, CustomCovariate {
+    String name();
+}
+
+public record DaysOfWeek(Set<DayOfWeek> days) implements Covariate {
+
+    public static DaysOfWeek of(DayOfWeek... days) {
+        return new DaysOfWeek(Set.of(days));
+    }
+
+    public static DaysOfWeek weekdays() {
+        return of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY);
+    }
+
+    public static DaysOfWeek weekends() {
+        return of(SATURDAY, SUNDAY);
+    }
+
+    @Override
+    public String name() { return "days_of_week"; }
+}
+
+public record TimeOfDay(int fromHour, int toHour) implements Covariate {
+
+    public static TimeOfDay businessHours() {
+        return new TimeOfDay(9, 17);
+    }
+
+    public static TimeOfDay offHours() {
+        return new TimeOfDay(17, 9);
+    }
+
+    @Override
+    public String name() { return "time_of_day"; }
+}
+
+public record Region(String value) implements Covariate {
+    @Override
+    public String name() { return "region"; }
+}
+
+public record CustomCovariate(String name, String value) implements Covariate {}
+```
+
+**Covariate Semantics:**
+
+Covariates define which events belong to a subgroup:
+
+- `DaysOfWeek.weekdays()` — events on Mon-Fri belong to this subgroup
+- `DaysOfWeek.of(MONDAY)` — only Monday events (weekly sampling)
+- `TimeOfDay.businessHours()` — events during 9-17 hours
+- `Region("us-east-1")` — events from this region
+
+The developer declares: "For this operation, analyze events matching these criteria as a coherent population."
+
+**Separation of Concerns:**
+
+Outcome defines covariate *data*. It does not implement matching logic.
+
+Signal (or any consumer) interprets covariates and implements `matches(Instant, Covariate)` to route events to appropriate subgroups. This keeps Outcome focused on data representation while allowing consumers to implement their own routing logic.
+
+**Covariates vs Tags:**
+
+| Aspect | Covariates | Tags |
+|--------|------------|------|
+| **Purpose** | Define statistical subgroups | General observability metadata |
+| **Type safety** | First-class types | String maps |
+| **Cardinality** | Must be bounded | Can be high-cardinality |
+| **Interpretation** | Signal routes by these | Passed through to reporters |
 
 ---
 
@@ -332,9 +435,10 @@ Signal is one of many possible OpReporter implementations. Boundary has no direc
 |--------|----------|
 | **Conceptual role** | Indeterminacy declaration point, not just exception adapter |
 | **Code support** | Exception-throwing and Outcome-returning equally |
-| **Event reporting** | Full lifecycle (start, end, outcome), not just failures |
+| **Event reporting** | Two events per crossing (start and end); duration computed by consumer |
 | **Execution model** | Synchronous crossings only |
 | **Async approach** | Virtual threads; reactive frameworks not accommodated |
+| **Covariates** | First-class types (DaysOfWeek, TimeOfDay, Region, Custom); not string maps |
 | **Developer model** | Responsible professionals; no excessive guardrails |
 
 ---
