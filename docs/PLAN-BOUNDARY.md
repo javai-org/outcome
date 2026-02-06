@@ -101,32 +101,33 @@ void onRetryExhausted(Outcome.Fail<?> failure, int totalAttempts);
 - [x] **1.6 Add tests for Factor types**
   - File: `src/test/java/org/javai/outcome/FactorTest.java`
 
-### Phase 2: Outcome Enhancement
+### Phase 2: Outcome Enhancement ✓
 
-- [ ] **2.1 Add correlationId to Outcome.Ok**
-  - Modify `Ok<T>` record to include `String correlationId`
-  - Add `correlationId()` method returning `Optional<String>`
-  - Update constructors/factories
+- [x] **2.1 Add correlationId to Outcome.Ok**
+  - Modified `Ok<T>` record to include `Optional<String> correlationId`
+  - Auto-generated `correlationId()` method returns `Optional<String>`
+  - Convenience constructor `Ok(T value)` creates with empty Optional
 
-- [ ] **2.2 Add correlationId to Outcome.Fail**
-  - Modify `Fail<T>` record to include `String correlationId`
-  - Add `correlationId()` method returning `Optional<String>`
-  - Update constructors/factories
+- [x] **2.2 Add correlationId to Outcome.Fail**
+  - Modified `Fail<T>` record to include `Optional<String> correlationId`
+  - Auto-generated `correlationId()` method returns `Optional<String>`
+  - Convenience constructor `Fail(Failure)` creates with empty Optional
 
-- [ ] **2.3 Add correlationId method to Outcome**
+- [x] **2.3 Add correlationId method to Outcome**
   - `Outcome<T> correlationId(String correlationId)`
   - Returns new instance with correlation ID set
 
-- [ ] **2.4 Update Outcome static factories**
-  - `ok(T value)` — creates Ok with null correlationId
-  - `ok(T value, String correlationId)` — creates Ok with correlationId
-  - `fail(Failure failure)` — creates Fail with null correlationId
-  - `fail(Failure failure, String correlationId)` — creates Fail with correlationId
+- [x] **2.4 Update Outcome static factories**
+  - `ok(T value)` — creates Ok with empty correlationId (uses post-processing approach)
+  - `fail(Failure failure)` — creates Fail with empty correlationId
+  - Note: Overloaded factories with correlationId parameter not needed; use `correlationId(String)` method
 
-- [ ] **2.5 Update Outcome.map/flatMap to preserve correlationId**
-  - Transformations should carry correlation ID through
+- [x] **2.5 Update Outcome.map/flatMap to preserve correlationId**
+  - map preserves correlation ID
+  - flatMap preserves correlation ID if result has none; result's ID takes precedence if set
+  - recover/recoverWith also preserve correlation ID
 
-- [ ] **2.6 Add tests for Outcome correlation ID**
+- [x] **2.6 Add tests for Outcome correlation ID**
   - File: `src/test/java/org/javai/outcome/OutcomeCorrelationTest.java`
 
 ### Phase 3: OpReporter Enhancement

@@ -138,7 +138,8 @@ public final class Retrier {
         RetryContext context = budget == null ? RetryContext.first() : RetryContext.first(budget);
         Outcome<T> result = attempt.get();
 
-        while (result instanceof Outcome.Fail<T>(Failure failure)) {
+        while (result instanceof Outcome.Fail<T> fail) {
+            Failure failure = fail.failure();
             reporter.report(failure);
             RetryDecision decision = policy.decide(context, failure);
 
@@ -147,9 +148,9 @@ public final class Retrier {
                 return result;
             }
 
-            if (decision instanceof RetryDecision.Retry(Duration delay)) {
-                reporter.reportRetryAttempt(failure, context.attemptNumber(), delay);
-                sleep(delay);
+            if (decision instanceof RetryDecision.Retry retry) {
+                reporter.reportRetryAttempt(failure, context.attemptNumber(), retry.delay());
+                sleep(retry.delay());
                 context = context.next();
                 result = attempt.get();
             }

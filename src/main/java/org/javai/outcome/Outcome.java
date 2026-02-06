@@ -1,6 +1,7 @@
 package org.javai.outcome;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -8,14 +9,38 @@ import java.util.function.Supplier;
  * Represents the outcome of an operation that may fail.
  * Either {@link Ok} containing a successful value, or {@link Fail} containing a {@link Failure}.
  *
+ * <p>Outcomes may optionally carry a correlation ID for tracing purposes. The correlation ID
+ * is typically assigned by a {@link org.javai.outcome.boundary.Boundary} when crossing
+ * the boundary between deterministic and non-deterministic operations.
+ *
  * @param <T> The type of the successful value
  */
-public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
+public sealed interface Outcome<T> permits Outcome.Ok, Outcome.Fail {
 
     /**
      * A successful outcome containing a value.
+     *
+     * @param value the successful value
+     * @param correlationId optional correlation ID for tracing
      */
-    record Ok<T>(T value) implements Outcome<T> {
+    record Ok<T>(T value, Optional<String> correlationId) implements Outcome<T> {
+
+        /**
+         * Canonical constructor with validation.
+         */
+        public Ok {
+            Objects.requireNonNull(correlationId, "correlationId must not be null, use Optional.empty()");
+        }
+
+        /**
+         * Creates an Ok outcome with a value and no correlation ID.
+         *
+         * @param value the successful value
+         */
+        public Ok(T value) {
+            this(value, Optional.empty());
+        }
+
         @Override
         public boolean isOk() {
             return true;
@@ -24,6 +49,11 @@ public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
         @Override
         public boolean isFail() {
             return false;
+        }
+
+        @Override
+        public Outcome<T> correlationId(String correlationId) {
+            return new Ok<>(value, Optional.ofNullable(correlationId));
         }
 
         @Override
@@ -44,13 +74,18 @@ public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
         @Override
         public <U> Outcome<U> map(Function<? super T, ? extends U> mapper) {
             Objects.requireNonNull(mapper);
-            return new Ok<>(mapper.apply(value));
+            return new Ok<>(mapper.apply(value), correlationId);
         }
 
         @Override
         public <U> Outcome<U> flatMap(Function<? super T, ? extends Outcome<U>> mapper) {
             Objects.requireNonNull(mapper);
-            return mapper.apply(value);
+            Outcome<U> result = mapper.apply(value);
+            // Preserve correlation ID if the result doesn't have one
+            if (correlationId.isPresent() && result.correlationId().isEmpty()) {
+                return result.correlationId(correlationId.get());
+            }
+            return result;
         }
 
         @Override
@@ -66,10 +101,27 @@ public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
 
     /**
      * A failed outcome containing failure details.
+     *
+     * @param failure the failure details
+     * @param correlationId optional correlation ID for tracing
      */
-    record Fail<T>(Failure failure) implements Outcome<T> {
+    record Fail<T>(Failure failure, Optional<String> correlationId) implements Outcome<T> {
+
+        /**
+         * Canonical constructor with validation.
+         */
         public Fail {
             Objects.requireNonNull(failure, "failure must not be null");
+            Objects.requireNonNull(correlationId, "correlationId must not be null, use Optional.empty()");
+        }
+
+        /**
+         * Creates a Fail outcome with a failure and no correlation ID.
+         *
+         * @param failure the failure details
+         */
+        public Fail(Failure failure) {
+            this(failure, Optional.empty());
         }
 
         @Override
@@ -80,6 +132,11 @@ public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
         @Override
         public boolean isFail() {
             return true;
+        }
+
+        @Override
+        public Outcome<T> correlationId(String correlationId) {
+            return new Fail<>(failure, Optional.ofNullable(correlationId));
         }
 
         @Override
@@ -99,33 +156,55 @@ public sealed interface  Outcome<T> permits Outcome.Ok, Outcome.Fail {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <U> Outcome<U> map(Function<? super T, ? extends U> mapper) {
-            return (Outcome<U>) this;
+            return new Fail<>(failure, correlationId);
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <U> Outcome<U> flatMap(Function<? super T, ? extends Outcome<U>> mapper) {
-            return (Outcome<U>) this;
+            return new Fail<>(failure, correlationId);
         }
 
         @Override
         public Outcome<T> recover(Function<? super Failure, ? extends T> recovery) {
             Objects.requireNonNull(recovery);
-            return new Ok<>(recovery.apply(failure));
+            return new Ok<>(recovery.apply(failure), correlationId);
         }
 
         @Override
         public Outcome<T> recoverWith(Function<? super Failure, ? extends Outcome<T>> recovery) {
             Objects.requireNonNull(recovery);
-            return recovery.apply(failure);
+            Outcome<T> result = recovery.apply(failure);
+            // Preserve correlation ID if the result doesn't have one
+            if (correlationId.isPresent() && result.correlationId().isEmpty()) {
+                return result.correlationId(correlationId.get());
+            }
+            return result;
         }
     }
 
     // Query methods
     boolean isOk();
     boolean isFail();
+
+    // Correlation ID
+    /**
+     * Returns the correlation ID if present.
+     *
+     * @return an Optional containing the correlation ID, or empty if not set
+     */
+    Optional<String> correlationId();
+
+    /**
+     * Returns a new Outcome with the specified correlation ID.
+     *
+     * <p>This method is typically used by {@link org.javai.outcome.boundary.Boundary}
+     * to attach a correlation ID to outcomes after the operation completes.
+     *
+     * @param correlationId the correlation ID to attach
+     * @return a new Outcome with the correlation ID set
+     */
+    Outcome<T> correlationId(String correlationId);
 
     // Value extraction
     T getOrThrow();
