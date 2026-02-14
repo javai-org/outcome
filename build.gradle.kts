@@ -1,10 +1,15 @@
 plugins {
     id("java")
-    id("maven-publish")
+    id("signing")
+    id("com.vanniktech.maven.publish") version "0.36.0"
+}
+
+signing {
+    useGpgCmd()
 }
 
 group = "org.javai"
-version = "1.0-SNAPSHOT"
+version = "0.1.0"
 
 java {
     toolchain {
@@ -22,7 +27,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("org.assertj:assertj-core:3.26.3")
+    testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     testImplementation("org.slf4j:slf4j-api:2.0.16")
     testImplementation("org.slf4j:slf4j-simple:2.0.16")
@@ -36,15 +41,36 @@ tasks.test {
     }
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
+    coordinates("org.javai", "outcome", version.toString())
+
+    pom {
+        name.set("Outcome")
+        description.set("A framework for building action plans based on natural language inputs")
+        url.set("https://github.com/javai-org/outcome")
+
+        licenses {
+            license {
+                name.set("Attribution Required License (ARL-1.0)")
+                url.set("https://github.com/javai-org/outcome/blob/main/LICENSE")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("mikemannion")
+                name.set("Michael Franz Mannion")
+                email.set("michaelmannion@me.com")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/javai-org/outcome")
+            connection.set("scm:git:git://github.com/javai-org/outcome.git")
+            developerConnection.set("scm:git:ssh://github.com/javai-org/outcome.git")
         }
     }
 }

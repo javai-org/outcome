@@ -307,6 +307,30 @@ Defects (unchecked exceptions) propagate to the top of the stack where `Operatio
 
 - Java 21+
 
+## Installation
+
+**Gradle (Kotlin DSL):**
+
+```kotlin
+implementation("org.javai:outcome:0.1.0")
+```
+
+**Gradle (Groovy DSL):**
+
+```groovy
+implementation 'org.javai:outcome:0.1.0'
+```
+
+**Maven:**
+
+```xml
+<dependency>
+    <groupId>org.javai</groupId>
+    <artifactId>outcome</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
 ## License
 
 Attribution Required License (ARL-1.0) - see [LICENSE](LICENSE) for details.

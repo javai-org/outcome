@@ -819,6 +819,30 @@ org.javai.outcome
 
 - Java 21+
 
+### Installation
+
+**Gradle (Kotlin DSL):**
+
+```kotlin
+implementation("org.javai:outcome:0.1.0")
+```
+
+**Gradle (Groovy DSL):**
+
+```groovy
+implementation 'org.javai:outcome:0.1.0'
+```
+
+**Maven:**
+
+```xml
+<dependency>
+    <groupId>org.javai</groupId>
+    <artifactId>outcome</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
 ---
 
 ## Getting Started
