@@ -25,7 +25,7 @@ dependencies {
     // Optional: SLF4J support for Log4jOpReporter and MetricsOpReporter
     compileOnly("org.slf4j:slf4j-api:2.0.16")
 
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation(platform("org.junit:junit-bom:5.14.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
