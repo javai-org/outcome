@@ -9,7 +9,7 @@ signing {
 }
 
 group = "org.javai"
-version = "0.2.0-SNAPSHOT"
+version = property("outcomeVersion") as String
 
 java {
     toolchain {
@@ -72,6 +72,109 @@ mavenPublishing {
             connection.set("scm:git:git://github.com/javai-org/outcome.git")
             developerConnection.set("scm:git:ssh://github.com/javai-org/outcome.git")
         }
+    }
+}
+
+// ========== Release Lifecycle ==========
+
+fun runCommand(vararg args: String) {
+    val process = ProcessBuilder(*args)
+        .directory(projectDir)
+        .inheritIO()
+        .start()
+    val exitCode = process.waitFor()
+    if (exitCode != 0) {
+        throw GradleException("Command failed (exit $exitCode): ${args.joinToString(" ")}")
+    }
+}
+
+fun runCommandAndCapture(vararg args: String): String {
+    val process = ProcessBuilder(*args)
+        .directory(projectDir)
+        .redirectErrorStream(true)
+        .start()
+    val output = process.inputStream.bufferedReader().readText()
+    process.waitFor()
+    return output.trim()
+}
+
+tasks.register("release") {
+    description = "Validates, publishes to Maven Central, tags the release, and bumps to next SNAPSHOT"
+    group = "publishing"
+
+    doLast {
+        val ver = project.property("outcomeVersion") as String
+
+        // 1. Validate not a SNAPSHOT
+        if (ver.endsWith("-SNAPSHOT")) {
+            throw GradleException(
+                "Cannot release a SNAPSHOT version ($ver). " +
+                "Set the release version in gradle.properties first, e.g. outcomeVersion=0.2.0"
+            )
+        }
+
+        // 2. Validate clean git state
+        val statusOutput = runCommandAndCapture("git", "status", "--porcelain")
+        if (statusOutput.isNotEmpty()) {
+            throw GradleException(
+                "Cannot release with uncommitted changes. Commit or stash them first.\n$statusOutput"
+            )
+        }
+
+        // 3. Create annotated tag locally (before publish, so a successful publish always has a tag)
+        val tag = "v$ver"
+        logger.lifecycle("Creating tag $tag...")
+        runCommand("git", "tag", "-a", tag, "-m", "Release $ver")
+
+        // 4. Publish to Maven Central (delete local tag if this fails)
+        logger.lifecycle("Publishing $ver to Maven Central...")
+        try {
+            runCommand("./gradlew", "publishAndReleaseToMavenCentral")
+        } catch (e: Exception) {
+            logger.lifecycle("Publishing failed — removing local tag $tag")
+            runCommand("git", "tag", "-d", tag)
+            throw e
+        }
+
+        // 5. Push tag (artifact is published, so the tag must reach the remote)
+        logger.lifecycle("Pushing tag $tag to origin...")
+        runCommand("git", "push", "origin", tag)
+
+        // 6. Bump to next SNAPSHOT
+        val parts = ver.split(".")
+        val nextPatch = parts[2].toInt() + 1
+        val nextVersion = "${parts[0]}.${parts[1]}.$nextPatch-SNAPSHOT"
+        logger.lifecycle("Bumping version to $nextVersion...")
+
+        val propsFile = file("gradle.properties")
+        propsFile.writeText(propsFile.readText().replace("outcomeVersion=$ver", "outcomeVersion=$nextVersion"))
+
+        runCommand("git", "add", "gradle.properties")
+        runCommand("git", "commit", "-m", "Bump version to $nextVersion")
+        runCommand("git", "push")
+
+        logger.lifecycle("Release $ver complete. Version bumped to $nextVersion.")
+    }
+}
+
+tasks.register("tagRelease") {
+    description = "Creates and pushes a release tag for a given version (e.g. -PreleaseVersion=0.1.0)"
+    group = "publishing"
+
+    doLast {
+        val ver = project.findProperty("releaseVersion") as String?
+            ?: throw GradleException("Specify -PreleaseVersion=<version>, e.g. ./gradlew tagRelease -PreleaseVersion=0.1.0")
+
+        val tag = "v$ver"
+        val commitish = (project.findProperty("commitish") as String?) ?: "HEAD"
+
+        logger.lifecycle("Creating tag $tag at $commitish...")
+        runCommand("git", "tag", "-a", tag, commitish, "-m", "Release $ver")
+
+        logger.lifecycle("Pushing tag $tag to origin...")
+        runCommand("git", "push", "origin", tag)
+
+        logger.lifecycle("Tag $tag created and pushed.")
     }
 }
 
