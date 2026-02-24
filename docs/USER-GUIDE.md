@@ -12,7 +12,7 @@ Most application code is deterministic. Given the same inputs, it produces the s
 
 Java's exception model conflates three fundamentally different things:
 
-1. **Operational failures** — network timeouts, service unavailability, rate limits. These are *normal*. They happen every day in production. They're expected, recoverable, and often transient.
+1. **Operational failures** — network timeouts, service unavailability, rate limits. These are *normal*. They happen every day in production. They're expected, often recoverable, often transient.
 
 2. **Defects** — null pointers, invalid arguments, misconfiguration. These are *bugs*. No retry will help. A human must fix the code or configuration.
 
@@ -37,7 +37,7 @@ The result:
 
 ### The Solution
 
-**Operational failures are values.** They belong in normal control flow, not exception handling.
+**Operational failures are values.** They belong in normal control flow, not exception handling. This is how Outcome does it:
 
 ```java
 Outcome<Response> result = boundary.call("UserApi.fetch", () -> httpClient.send(request));
@@ -116,9 +116,9 @@ Outcome<Integer> length = outcome.map(String::length);
 Outcome<User> user = fetchUserId()
     .flatMap(id -> fetchUser(id));
 
-// recover — provide fallback for failures
+// recover — provide fallback value for failures
 Outcome<Config> config = loadConfig()
-    .recover(failure -> Outcome.ok(Config.defaults()));
+    .recover(failure -> Config.defaults());
 
 // recoverWith — provide fallback based on failure
 Outcome<Data> data = fetchFromPrimary()
@@ -130,7 +130,11 @@ Outcome<Data> data = fetchFromPrimary()
     });
 ```
 
-Correlation IDs are preserved through transformations:
+### Correlation IDs
+
+A correlation ID is an optional string attached to an `Outcome` that ties a result back to the operation that produced it. When a `Boundary` executes work, it generates a correlation ID and attaches it to the returned `Outcome` — whether success or failure. This allows reporting, logging, and downstream handling to trace an outcome to its origin, which is essential for diagnosing issues in systems where many operations execute concurrently or across service boundaries.
+
+Correlation IDs are preserved through combinators like `map`, `flatMap`, `recover`, and `recoverWith`:
 
 ```java
 Outcome<String> original = Outcome.<Integer>ok(42).correlationId("trace-1");
@@ -140,7 +144,7 @@ Outcome<String> mapped = original.map(n -> "Value: " + n);
 
 ### Failure
 
-A structured failure with everything needed for reporting and policy decisions:
+When an `Outcome` is a `Fail`, it carries a `Failure` — a structured record describing what went wrong. A `Failure` is how Outcome turns an operational problem into actionable data: it identifies the kind of failure, whether it is retryable, which operation produced it, and any context needed for reporting or recovery. `Boundary` creates `Failure` values automatically by classifying caught exceptions, but you can also construct them directly when building outcomes by hand:
 
 ```java
 Failure failure = Failure.builder(
@@ -158,16 +162,18 @@ Failure failure = Failure.builder(
 
 **Failure components:**
 
-| Component       | Description                                                 |
-|-----------------|-------------------------------------------------------------|
-| `FailureId`     | Namespaced identifier (`network:timeout`, `sql:connection`) |
-| `FailureType`   | `TRANSIENT`, `PERMANENT`, or `DEFECT`                       |
-| `message`       | Human-readable description                                  |
-| `operation`     | The operation that failed                                   |
-| `exception`     | The underlying throwable (optional)                         |
-| `correlationId` | Trace correlation (optional)                                |
-| `tags`          | Key-value metadata for observability                        |
-| `retryAfter`    | Advisory delay before retry                                 |
+| Component       | Description                                                       |
+|-----------------|-------------------------------------------------------------------|
+| `FailureId`     | Namespaced identifier (`network:timeout`, `sql:connection`)       |
+| `FailureType`   | `TRANSIENT`, `PERMANENT`, or `DEFECT`                             |
+| `message`       | Human-readable description                                        |
+| `operation`     | The operation that failed                                         |
+| `exception`     | The underlying throwable (optional)                               |
+| `retryAfter`    | Advisory delay before retry (optional)                            |
+| `occurredAt`    | Timestamp when the failure happened                               |
+| `correlationId` | Trace correlation (optional)                                      |
+| `tags`          | Key-value metadata for observability                              |
+| `trackingId`    | Stable identifier for metrics aggregation (defaults to operation) |
 
 **Failure types:**
 
@@ -195,9 +201,7 @@ Failure.defect(id, message, operation, exception);
 
 ## Boundary
 
-### Purpose
-
-Boundary is the single point where non-deterministic operations are acknowledged, observed, and converted into outcomes. It is:
+The Boundary class represents the crossing point between deterministic application code and non-deterministic operations like network calls or database queries. Rather than letting exceptions from these operations leak into the main program, Boundary catches and classifies them, always returning a well-typed `Outcome` instance. More specifically, it is:
 
 - The **observation point** for fallible operations
 - The **instrumentation point** for timing and success/failure tracking
@@ -215,13 +219,10 @@ Outcome<Response> result = boundary.call("HttpClient.send", () ->
 ```
 
 What happens:
-1. Boundary generates a correlation ID
-2. Reports `onStart` event
-3. Executes the work
-4. If exception thrown: classifies, reports failure, returns `Outcome.Fail`
-5. If success: wraps result in `Outcome.Ok`
-6. Reports `onEnd` event
-7. Returns outcome with correlation ID attached
+1. Executes the work
+2. If checked exception thrown: classifies it, reports failure via `OpReporter`, returns `Outcome.Fail` with correlation ID
+3. If success: wraps result in `Outcome.Ok`
+4. If RuntimeException thrown: rethrows it (defects propagate, not captured as outcomes)
 
 ### Creating a Boundary
 
@@ -246,8 +247,8 @@ Boundary boundary = new Boundary(
 ### Correlation IDs
 
 Every Boundary call generates a correlation ID that:
-- Links `onStart` → retries → `onEnd` events
-- Is attached to the returned Outcome
+- Is attached to the returned Outcome (both `Ok` and `Fail`)
+- Is included in failures reported to `OpReporter`
 - Enables distributed tracing integration
 
 ```java
@@ -369,23 +370,20 @@ public class AlertingReporter implements OpReporter {
         if (failure.type() == FailureType.DEFECT) {
             pagerDuty.alert("DEFECT: " + failure.message());
         }
+        metrics.increment("operation.failure",
+            "code", failure.id().toString());
     }
 
     @Override
-    public void onEnd(Outcome<?> outcome) {
-        if (outcome.isFail()) {
-            Outcome.Fail<?> fail = (Outcome.Fail<?>) outcome;
-            metrics.increment("operation.failure",
-                "code", fail.failure().id().toString());
-        } else {
-            metrics.increment("operation.success");
-        }
+    public void reportRetryAttempt(Failure failure, int attemptNumber, Duration delay) {
+        metrics.increment("operation.retry",
+            "attempt", String.valueOf(attemptNumber));
     }
 
     @Override
-    public void onRetryExhausted(Outcome.Fail<?> outcome, int totalAttempts) {
+    public void reportRetryExhausted(Failure failure, int totalAttempts) {
         slack.post("#ops", "Retry exhausted after " + totalAttempts +
-            " attempts: " + outcome.failure().message());
+            " attempts: " + failure.message());
     }
 }
 ```
@@ -518,17 +516,24 @@ public interface FailureClassifier {
 
 ### BoundaryFailureClassifier
 
-The default classifier with sensible mappings:
+The default classifier for checked exceptions with sensible mappings:
 
-| Exception Type           | Failure Type | Failure ID               |
-|--------------------------|--------------|--------------------------|
-| `SocketTimeoutException` | TRANSIENT    | `network:socket_timeout` |
-| `ConnectException`       | TRANSIENT    | `network:connect`        |
-| `HttpTimeoutException`   | TRANSIENT    | `network:http_timeout`   |
-| `InterruptedIOException` | TRANSIENT    | `io:interrupted`         |
-| `SQLException`           | TRANSIENT    | `sql:error`              |
-| `IOException`            | TRANSIENT    | `io:error`               |
-| `RuntimeException`       | DEFECT       | `defect:{className}`     |
+| Exception Type                                  | Failure Type | Failure ID                   |
+|-------------------------------------------------|--------------|------------------------------|
+| `SocketTimeoutException`                        | TRANSIENT    | `network:timeout`            |
+| `HttpTimeoutException`                          | TRANSIENT    | `network:http_timeout`       |
+| `ConnectException`                              | TRANSIENT    | `network:connection_refused` |
+| `UnknownHostException`                          | PERMANENT    | `network:unknown_host`       |
+| `TimeoutException`                              | TRANSIENT    | `operation:timeout`          |
+| `FileNotFoundException` / `NoSuchFileException` | PERMANENT    | `io:file_not_found`          |
+| `AccessDeniedException`                         | PERMANENT    | `io:access_denied`           |
+| `IOException` (general)                         | TRANSIENT    | `io:io_error`                |
+| `SQLTransientException`                         | TRANSIENT    | `sql:transient`              |
+| `SQLException` (sqlState starts "08")           | TRANSIENT    | `sql:connection`             |
+| `SQLException` (other)                          | PERMANENT    | `sql:error`                  |
+| Unknown checked exception (fallback)            | PERMANENT    | `unknown:{className}`        |
+
+Note: RuntimeExceptions are not classified — they are rethrown by Boundary as defects.
 
 ### Custom Classification
 
@@ -573,15 +578,15 @@ Thread.currentThread().setUncaughtExceptionHandler(handler);
 
 ### Defect Classification
 
-Translates uncaught exceptions into defect-type Failures:
+The `DefaultDefectClassifier` implements `FailureClassifier` and translates uncaught RuntimeExceptions into defect-type Failures:
 
 ```java
-public interface DefectClassifier {
-    Failure classify(Thread thread, Throwable throwable);
+public interface FailureClassifier {
+    Failure classify(String operation, Throwable throwable);
 }
 ```
 
-The default classifier extracts operation context from the stack trace.
+The `DefaultDefectClassifier` maps common runtime exceptions (e.g., `NullPointerException` → `defect:null_pointer`, `IllegalArgumentException` → `defect:illegal_argument`) to appropriately identified `DEFECT` failures.
 
 ---
 
@@ -613,7 +618,7 @@ Future<Outcome<User>> future = executor.submit(() ->
 Outcome<User> result = future.get();
 ```
 
-The Boundary crossing is synchronous (on the virtual thread). Async behavior is achieved at the caller level.
+The Boundary crossing is synchronous (on the virtual thread). Async behaviour is achieved at the caller level.
 
 ### Pattern 3: With Retry
 
@@ -636,14 +641,18 @@ public class OrderService {
     private final InventoryService inventoryService;
 
     public Outcome<Order> createOrder(OrderRequest request) {
-        return boundary.call("OrderService.validateRequest", () -> validate(request))
+        return validate(request)
             .flatMap(validated ->
                 boundary.call("InventoryService.reserve", () ->
                     inventoryService.reserve(validated.items())))
             .flatMap(reservation ->
                 boundary.call("PaymentGateway.charge", () ->
-                    paymentGateway.charge(request.payment())))
-            .map(payment -> new Order(request, reservation, payment));
+                        paymentGateway.charge(request.payment()))
+                    .map(payment -> new Order(request, reservation, payment))
+                    .recoverWith(failure -> {
+                        inventoryService.release(reservation);
+                        return Outcome.fail(failure);
+                    }));
     }
 }
 ```
@@ -653,26 +662,28 @@ public class OrderService {
 ```java
 @RestController
 public class UserController {
-    private final Boundary boundary;
     private final UserService userService;
 
     @GetMapping("/users/{id}")
-    public ResponseEntity<User> getUser(@PathVariable String id) {
-        Outcome<User> result = boundary.call("UserController.getUser", () ->
-            userService.findById(id)
-        );
+    public ResponseEntity<?> getUser(@PathVariable String id) {
+        Outcome<User> result = userService.findById(id);
 
         return switch (result) {
             case Outcome.Ok(var user, var _) -> ResponseEntity.ok(user);
             case Outcome.Fail(var failure, var _) -> switch (failure.type()) {
-                case TRANSIENT -> ResponseEntity.status(503).build();
-                case PERMANENT -> ResponseEntity.status(404).build();
-                case DEFECT -> ResponseEntity.status(500).build();
+                case TRANSIENT -> ResponseEntity.status(503)
+                    .body("Service temporarily unavailable");
+                case PERMANENT -> ResponseEntity.status(502)
+                    .body("Upstream service error: " + failure.message());
+                case DEFECT -> ResponseEntity.status(500)
+                    .body("Internal error");
             };
         };
     }
 }
 ```
+
+Note that the `UserService.findById` method owns the Boundary crossing and returns an `Outcome<User>`. The controller's role is limited to translating the outcome into an HTTP response. The `DEFECT` branch is included for exhaustiveness — in practice, Boundary rethrows RuntimeExceptions rather than capturing them as outcomes, so defects are typically handled by the `OperationalExceptionHandler` before reaching this point.
 
 ---
 
@@ -805,7 +816,7 @@ org.javai.outcome
 │
 └── ops/
     ├── OpReporter, CompositeOpReporter
-    ├── DefectClassifier, DefaultDefectClassifier
+    ├── DefaultDefectClassifier
     ├── OperationalExceptionHandler
     ├── log4j/
     │   └── Log4jOpReporter
@@ -824,13 +835,13 @@ org.javai.outcome
 **Gradle (Kotlin DSL):**
 
 ```kotlin
-implementation("org.javai:outcome:0.1.0")
+implementation("org.javai:outcome:0.2.0")
 ```
 
 **Gradle (Groovy DSL):**
 
 ```groovy
-implementation 'org.javai:outcome:0.1.0'
+implementation 'org.javai:outcome:0.2.0'
 ```
 
 **Maven:**
