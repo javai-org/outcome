@@ -8,7 +8,7 @@ A comprehensive guide to using the Outcome framework for handling non-determinis
 
 ### The Problem
 
-Most application code is deterministic. Given the same inputs, it produces the same outputs. But applications routinely encounter non-determinism — operations whose outcomes depend on factors outside the code's control: network availability, service responsiveness, database state, or external API behavior.
+Most application code is deterministic. Given the same inputs, it produces the same outputs. But applications routinely encounter non-determinism — operations whose outcomes depend on factors outside the code's control: network availability, service responsiveness, database state, or external API behaviour.
 
 Java's exception model conflates three fundamentally different things:
 
