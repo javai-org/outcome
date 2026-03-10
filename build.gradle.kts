@@ -28,7 +28,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.14.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.21.0")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.21.1")
     testImplementation("org.slf4j:slf4j-api:2.0.17")
     testImplementation("org.slf4j:slf4j-simple:2.0.17")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
