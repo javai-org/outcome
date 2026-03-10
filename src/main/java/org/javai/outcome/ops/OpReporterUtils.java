@@ -1,8 +1,7 @@
 package org.javai.outcome.ops;
 
-import org.javai.outcome.Failure;
-
 import java.time.format.DateTimeFormatter;
+import org.javai.outcome.Failure;
 
 /**
  * Shared utilities for OpReporter implementations.
@@ -66,7 +65,7 @@ public final class OpReporterUtils {
 	 * Formats the correlation ID for display, returning "none" if not present.
 	 */
 	public static String formatCorrelationId(Failure failure) {
-		return escapeJson(failure.correlationId() != null ? failure.correlationId() : "none");
+		return escapeJson(failure.correlationId().orElse("none"));
 	}
 
 	/**

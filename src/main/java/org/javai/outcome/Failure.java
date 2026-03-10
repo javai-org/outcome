@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A fully-contextualized failure ready for reporting and policy evaluation.
@@ -11,11 +12,11 @@ import java.util.Objects;
  * @param id The failure identifier (namespace:name)
  * @param message Human-readable description
  * @param type The failure type (TRANSIENT, PERMANENT, DEFECT)
- * @param exception The underlying exception (may be null)
- * @param retryAfter Suggested delay before retry (may be null)
+ * @param exception The underlying exception, if any
+ * @param retryAfter Suggested delay before retry, if any
  * @param operation The operation that failed (e.g., "HttpClient.send", "OrdersApi.fetchOrder")
  * @param occurredAt When the failure happened
- * @param correlationId Trace correlation identifier
+ * @param correlationId Trace correlation identifier, if any
  * @param tags Additional key-value metadata for observability
  * @param trackingId Stable identifier for metrics aggregation (defaults to operation if null)
  */
@@ -23,11 +24,11 @@ public record Failure(
         FailureId id,
         String message,
         FailureType type,
-        Throwable exception,
-        Duration retryAfter,
+        Optional<Throwable> exception,
+        Optional<Duration> retryAfter,
         String operation,
         Instant occurredAt,
-        String correlationId,
+        Optional<String> correlationId,
         Map<String, String> tags,
         String trackingId
 ) {
@@ -38,6 +39,9 @@ public record Failure(
         Objects.requireNonNull(type, "type must not be null");
         Objects.requireNonNull(operation, "operation must not be null");
         Objects.requireNonNull(occurredAt, "occurredAt must not be null");
+        exception = exception == null ? Optional.empty() : exception;
+        retryAfter = retryAfter == null ? Optional.empty() : retryAfter;
+        correlationId = correlationId == null ? Optional.empty() : correlationId;
         tags = tags == null ? Map.of() : Map.copyOf(tags);
         trackingId = trackingId == null ? operation : trackingId;
     }
@@ -48,32 +52,32 @@ public record Failure(
      * Creates a transient failure that may resolve on retry.
      */
     public static Failure transientFailure(FailureId id, String message, String operation, Throwable exception) {
-        return new Failure(id, message, FailureType.TRANSIENT, exception, null,
-                operation, Instant.now(), null, null, null);
+        return new Failure(id, message, FailureType.TRANSIENT, Optional.ofNullable(exception), Optional.empty(),
+                operation, Instant.now(), Optional.empty(), null, null);
     }
 
     /**
      * Creates a transient failure with a retry delay hint.
      */
     public static Failure transientFailure(FailureId id, String message, String operation, Throwable exception, Duration retryAfter) {
-        return new Failure(id, message, FailureType.TRANSIENT, exception, retryAfter,
-                operation, Instant.now(), null, null, null);
+        return new Failure(id, message, FailureType.TRANSIENT, Optional.ofNullable(exception), Optional.ofNullable(retryAfter),
+                operation, Instant.now(), Optional.empty(), null, null);
     }
 
     /**
      * Creates a permanent failure that will not resolve on retry.
      */
     public static Failure permanentFailure(FailureId id, String message, String operation, Throwable exception) {
-        return new Failure(id, message, FailureType.PERMANENT, exception, null,
-                operation, Instant.now(), null, null, null);
+        return new Failure(id, message, FailureType.PERMANENT, Optional.ofNullable(exception), Optional.empty(),
+                operation, Instant.now(), Optional.empty(), null, null);
     }
 
     /**
      * Creates a defect failure (programming error or misconfiguration).
      */
     public static Failure defect(FailureId id, String message, String operation, Throwable exception) {
-        return new Failure(id, message, FailureType.DEFECT, exception, null,
-                operation, Instant.now(), null, null, null);
+        return new Failure(id, message, FailureType.DEFECT, Optional.ofNullable(exception), Optional.empty(),
+                operation, Instant.now(), Optional.empty(), null, null);
     }
 
     /**
@@ -88,7 +92,7 @@ public record Failure(
      */
     public Failure withContext(String correlationId, Map<String, String> tags) {
         return new Failure(id, message, type, exception, retryAfter, operation,
-                occurredAt, correlationId, tags, trackingId);
+                occurredAt, Optional.ofNullable(correlationId), tags, trackingId);
     }
 
     public static class Builder {
@@ -141,8 +145,8 @@ public record Failure(
         }
 
         public Failure build() {
-            return new Failure(id, message, type, exception, retryAfter, operation,
-                    occurredAt, correlationId, tags, trackingId);
+            return new Failure(id, message, type, Optional.ofNullable(exception), Optional.ofNullable(retryAfter),
+                    operation, occurredAt, Optional.ofNullable(correlationId), tags, trackingId);
         }
     }
 }

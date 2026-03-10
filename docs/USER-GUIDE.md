@@ -162,18 +162,18 @@ Failure failure = Failure.builder(
 
 **Failure components:**
 
-| Component       | Description                                                       |
-|-----------------|-------------------------------------------------------------------|
-| `FailureId`     | Namespaced identifier (`network:timeout`, `sql:connection`)       |
-| `FailureType`   | `TRANSIENT`, `PERMANENT`, or `DEFECT`                             |
-| `message`       | Human-readable description                                        |
-| `operation`     | The operation that failed                                         |
-| `exception`     | The underlying throwable (optional)                               |
-| `retryAfter`    | Advisory delay before retry (optional)                            |
-| `occurredAt`    | Timestamp when the failure happened                               |
-| `correlationId` | Trace correlation (optional)                                      |
-| `tags`          | Key-value metadata for observability                              |
-| `trackingId`    | Stable identifier for metrics aggregation (defaults to operation) |
+| Component       | Type                   | Description                                                       |
+|-----------------|------------------------|-------------------------------------------------------------------|
+| `id`            | `FailureId`            | Namespaced identifier (`network:timeout`, `sql:connection`)       |
+| `type`          | `FailureType`          | `TRANSIENT`, `PERMANENT`, or `DEFECT`                             |
+| `message`       | `String`               | Human-readable description                                        |
+| `operation`     | `String`               | The operation that failed                                         |
+| `exception`     | `Optional<Throwable>`  | The underlying throwable                                          |
+| `retryAfter`    | `Optional<Duration>`   | Advisory delay before retry                                       |
+| `occurredAt`    | `Instant`              | Timestamp when the failure happened                               |
+| `correlationId` | `Optional<String>`     | Trace correlation identifier                                      |
+| `tags`          | `Map<String, String>`  | Key-value metadata for observability                              |
+| `trackingId`    | `String`               | Stable identifier for metrics aggregation (defaults to operation) |
 
 **Failure types:**
 
@@ -486,7 +486,25 @@ Retrier retrier = Retrier.builder()
 
 ### Retry Hints
 
-Failures can suggest retry delays (e.g., from HTTP 429/503 `Retry-After` headers):
+Failures can carry an advisory `retryAfter` delay. All retry policies respect this hint, using the maximum of the policy's calculated delay and the hint.
+
+**Automatic extraction from HTTP responses:**
+
+Use `HttpResponses.requireSuccess()` inside a `Boundary.call()` lambda. It throws `HttpStatusException` for non-2xx responses, automatically parsing the `Retry-After` header. The `BoundaryFailureClassifier` then creates a `Failure` with the retry hint populated:
+
+```java
+Outcome<String> result = retrier.execute(() ->
+    boundary.call("Api.fetch", () -> {
+        HttpResponse<String> response = httpClient.send(request, BodyHandlers.ofString());
+        HttpResponses.requireSuccess(response);  // Throws for non-2xx, parses Retry-After
+        return response.body();
+    })
+);
+```
+
+HTTP 429 and 503 responses with `Retry-After` headers are classified as `TRANSIENT` with the hint attached, so retry policies automatically wait the server-requested duration.
+
+**Manual construction:**
 
 ```java
 Failure failure = Failure.transientFailure(
@@ -497,8 +515,6 @@ Failure failure = Failure.transientFailure(
     Duration.ofSeconds(30)  // Retry after 30 seconds
 );
 ```
-
-Retry policies respect these hints, using the maximum of the calculated delay and the hint.
 
 ---
 
@@ -518,20 +534,23 @@ public interface FailureClassifier {
 
 The default classifier for checked exceptions with sensible mappings:
 
-| Exception Type                                  | Failure Type | Failure ID                   |
-|-------------------------------------------------|--------------|------------------------------|
-| `SocketTimeoutException`                        | TRANSIENT    | `network:timeout`            |
-| `HttpTimeoutException`                          | TRANSIENT    | `network:http_timeout`       |
-| `ConnectException`                              | TRANSIENT    | `network:connection_refused` |
-| `UnknownHostException`                          | PERMANENT    | `network:unknown_host`       |
-| `TimeoutException`                              | TRANSIENT    | `operation:timeout`          |
-| `FileNotFoundException` / `NoSuchFileException` | PERMANENT    | `io:file_not_found`          |
-| `AccessDeniedException`                         | PERMANENT    | `io:access_denied`           |
-| `IOException` (general)                         | TRANSIENT    | `io:io_error`                |
-| `SQLTransientException`                         | TRANSIENT    | `sql:transient`              |
-| `SQLException` (sqlState starts "08")           | TRANSIENT    | `sql:connection`             |
-| `SQLException` (other)                          | PERMANENT    | `sql:error`                  |
-| Unknown checked exception (fallback)            | PERMANENT    | `unknown:{className}`        |
+| Exception Type                                  | Failure Type | Failure ID                   | Retry Hint             |
+|-------------------------------------------------|--------------|------------------------------|------------------------|
+| `HttpStatusException` (429)                     | TRANSIENT    | `http:rate_limited`          | From `Retry-After`     |
+| `HttpStatusException` (5xx)                     | TRANSIENT    | `http:server_error`          | From `Retry-After`     |
+| `HttpStatusException` (other 4xx)               | PERMANENT    | `http:client_error`          | —                      |
+| `SocketTimeoutException`                        | TRANSIENT    | `network:timeout`            | —                      |
+| `HttpTimeoutException`                          | TRANSIENT    | `network:http_timeout`       | —                      |
+| `ConnectException`                              | TRANSIENT    | `network:connection_refused` | —                      |
+| `UnknownHostException`                          | PERMANENT    | `network:unknown_host`       | —                      |
+| `TimeoutException`                              | TRANSIENT    | `operation:timeout`          | —                      |
+| `FileNotFoundException` / `NoSuchFileException` | PERMANENT    | `io:file_not_found`          | —                      |
+| `AccessDeniedException`                         | PERMANENT    | `io:access_denied`           | —                      |
+| `IOException` (general)                         | TRANSIENT    | `io:io_error`                | —                      |
+| `SQLTransientException`                         | TRANSIENT    | `sql:transient`              | —                      |
+| `SQLException` (sqlState starts "08")           | TRANSIENT    | `sql:connection`             | —                      |
+| `SQLException` (other)                          | PERMANENT    | `sql:error`                  | —                      |
+| Unknown checked exception (fallback)            | PERMANENT    | `unknown:{className}`        | —                      |
 
 Note: RuntimeExceptions are not classified — they are rethrown by Boundary as defects.
 
@@ -806,9 +825,9 @@ org.javai.outcome
 ├── Outcome, Failure, FailureType, FailureId
 │
 ├── boundary/
-│   ├── Boundary
-│   ├── ThrowingSupplier
+│   ├── Boundary, ThrowingSupplier
 │   ├── FailureClassifier, BoundaryFailureClassifier
+│   ├── HttpResponses, HttpStatusException
 │
 ├── retry/
 │   ├── Retrier, RetryPolicy

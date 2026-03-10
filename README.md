@@ -142,7 +142,7 @@ Outcome<Response> result = retrier.execute(
 );
 ```
 
-Policies respect the failure's `RetryHint` and report all attempts through `OpReporter`.
+Policies respect the failure's `retryAfter` hint and report all attempts through `OpReporter`.
 
 ### Guided Retry
 
@@ -222,20 +222,20 @@ Outcome<Order> result = Retrier.withGuidance(4)
 
 ```
 org.javai.outcome
-├── Outcome, Failure, FailureKind, FailureCode
-├── FailureType, FailureId
-├── RetryHint, Retryability, Cause
+├── Outcome, Failure, FailureType, FailureId
 │
 ├── boundary/
 │   ├── Boundary, ThrowingSupplier
 │   ├── FailureClassifier, BoundaryFailureClassifier
+│   ├── HttpResponses, HttpStatusException
 │
 ├── retry/
 │   ├── Retrier, RetryPolicy
 │   ├── RetryDecision, RetryContext
 │
 └── ops/
-    ├── OpReporter, DefectClassifier
+    ├── OpReporter, CompositeOpReporter
+    ├── DefaultDefectClassifier
     └── OperationalExceptionHandler
 ```
 
@@ -245,11 +245,14 @@ org.javai.outcome
 // 1. Set up the infrastructure
 OpReporter reporter = failure -> System.out.println("FAILURE: " + failure);
 
-Boundary boundary = new Boundary(new BoundaryFailureClassifier(), reporter);
-Retrier retrier = new Retrier(reporter);
+Boundary boundary = Boundary.withReporter(reporter);
+Retrier retrier = Retrier.builder()
+    .policy(RetryPolicy.backoff(3, Duration.ofMillis(100), Duration.ofSeconds(5)))
+    .reporter(reporter)
+    .build();
 
 // 2. Install the uncaught exception handler
-new OperationalExceptionHandler(new DefectClassifier(), reporter).installAsDefault();
+new OperationalExceptionHandler(new DefaultDefectClassifier(), reporter).installAsDefault();
 
 // 3. Use Outcome in your code
 Outcome<User> result = boundary.call("UserService.findById", () ->

@@ -109,8 +109,8 @@ public class Log4jOpReporter implements OpReporter {
 			).trim();
 	}
 
-	private static String formatCorrelationId(String correlationId) {
-		return correlationId != null ? ", correlationId=" + correlationId : "";
+	private static String formatCorrelationId(java.util.Optional<String> correlationId) {
+		return correlationId.map(id -> ", correlationId=" + id).orElse("");
 	}
 
 	private static String formatTags(Map<String, String> tags) {
@@ -123,7 +123,7 @@ public class Log4jOpReporter implements OpReporter {
 				.orElse("") + "}";
 	}
 
-	private static String formatException(Throwable exception) {
-		return exception != null ? ", exception=" + exception.getClass().getName() : "";
+	private static String formatException(java.util.Optional<Throwable> exception) {
+		return exception.map(ex -> ", exception=" + ex.getClass().getName()).orElse("");
 	}
 }

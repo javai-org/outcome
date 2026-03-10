@@ -1,16 +1,17 @@
 package org.javai.outcome.retry;
 
-import org.javai.outcome.*;
-import org.javai.outcome.ops.OpReporter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.*;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.Outcome;
+import org.javai.outcome.ops.OpReporter;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class RetrierTest {
 
@@ -209,6 +210,92 @@ class RetrierTest {
 
         // First delay: max(100, 500) = 500, Second delay: max(200, 500) = 500
         assertThat(sleepTimes).containsExactly(500L, 500L);
+    }
+
+    @Test
+    void execute_fixedPolicy_respectsFailureRetryAfterHint() {
+        List<Long> sleepTimes = new ArrayList<>();
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(50));
+        Retrier retrier = Retrier.builder()
+                .policy(policy)
+                .sleeper(sleepTimes::add)
+                .build();
+
+        AtomicInteger attempts = new AtomicInteger(0);
+        retrier.execute(() -> {
+            if (attempts.incrementAndGet() < 3) {
+                // Failure with retryAfter hint greater than the fixed delay
+                return Outcome.fail(createTransientFailureWithRetryAfter("retry", Duration.ofMillis(500)));
+            }
+            return Outcome.ok("done");
+        });
+
+        // Fixed delay is 50ms but hint is 500ms — hint should win
+        assertThat(sleepTimes).containsExactly(500L, 500L);
+    }
+
+    @Test
+    void execute_fixedPolicy_usesFixedDelayWhenHintIsSmaller() {
+        List<Long> sleepTimes = new ArrayList<>();
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(200));
+        Retrier retrier = Retrier.builder()
+                .policy(policy)
+                .sleeper(sleepTimes::add)
+                .build();
+
+        AtomicInteger attempts = new AtomicInteger(0);
+        retrier.execute(() -> {
+            if (attempts.incrementAndGet() < 3) {
+                // Failure with retryAfter hint smaller than the fixed delay
+                return Outcome.fail(createTransientFailureWithRetryAfter("retry", Duration.ofMillis(50)));
+            }
+            return Outcome.ok("done");
+        });
+
+        // Fixed delay of 200ms is larger — should be used
+        assertThat(sleepTimes).containsExactly(200L, 200L);
+    }
+
+    @Test
+    void execute_fixedPolicy_usesFixedDelayWhenNoHint() {
+        List<Long> sleepTimes = new ArrayList<>();
+        RetryPolicy policy = RetryPolicy.fixed(3, Duration.ofMillis(100));
+        Retrier retrier = Retrier.builder()
+                .policy(policy)
+                .sleeper(sleepTimes::add)
+                .build();
+
+        AtomicInteger attempts = new AtomicInteger(0);
+        retrier.execute(() -> {
+            if (attempts.incrementAndGet() < 3) {
+                return Outcome.fail(createTransientFailure("retry"));
+            }
+            return Outcome.ok("done");
+        });
+
+        // No hint — fixed delay used
+        assertThat(sleepTimes).containsExactly(100L, 100L);
+    }
+
+    @Test
+    void execute_immediatePolicy_respectsFailureRetryAfterHint() {
+        List<Long> sleepTimes = new ArrayList<>();
+        RetryPolicy policy = RetryPolicy.immediate(3);
+        Retrier retrier = Retrier.builder()
+                .policy(policy)
+                .sleeper(sleepTimes::add)
+                .build();
+
+        AtomicInteger attempts = new AtomicInteger(0);
+        retrier.execute(() -> {
+            if (attempts.incrementAndGet() < 3) {
+                return Outcome.fail(createTransientFailureWithRetryAfter("retry", Duration.ofMillis(300)));
+            }
+            return Outcome.ok("done");
+        });
+
+        // Immediate has zero delay, but hint of 300ms should be respected
+        assertThat(sleepTimes).containsExactly(300L, 300L);
     }
 
     private Failure createTransientFailure(String message) {

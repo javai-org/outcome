@@ -1,17 +1,19 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.*;
-import org.javai.outcome.ops.OpReporter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
+import org.javai.outcome.Outcome;
+import org.javai.outcome.ops.OpReporter;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class BoundaryTest {
 
@@ -129,7 +131,7 @@ class BoundaryTest {
         });
 
         Failure failure = ((Outcome.Fail<String>) result).failure();
-        assertThat(failure.correlationId()).isEqualTo("trace-123");
+        assertThat(failure.correlationId()).contains("trace-123");
     }
 
     @Test

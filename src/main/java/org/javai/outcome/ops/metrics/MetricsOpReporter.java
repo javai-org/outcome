@@ -1,15 +1,13 @@
 package org.javai.outcome.ops.metrics;
 
 import static org.javai.outcome.ops.OpReporterUtils.escapeJson;
-import org.javai.outcome.Failure;
-import org.javai.outcome.ops.OpReporter;
-import org.javai.outcome.ops.OpReporterUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import org.javai.outcome.Failure;
+import org.javai.outcome.ops.OpReporter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reports failures as JSON-lines metrics via SLF4J.
@@ -116,9 +114,8 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "message", failure.message(), false);
 		appendField(sb, "type", failure.type().name(), false);
 		appendField(sb, "operation", failure.operation(), false);
-		if (failure.correlationId() != null) {
-			appendField(sb, "correlationId", failure.correlationId(), false);
-		}
+		failure.correlationId().ifPresent(cid ->
+			appendField(sb, "correlationId", cid, false));
 		appendTags(sb, failure.tags());
 		sb.append("}");
 		return sb.toString();
@@ -134,9 +131,8 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "delayMs", String.valueOf(delay.toMillis()), false);
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
-		if (failure.correlationId() != null) {
-			appendField(sb, "correlationId", failure.correlationId(), false);
-		}
+		failure.correlationId().ifPresent(cid ->
+			appendField(sb, "correlationId", cid, false));
 		sb.append("}");
 		return sb.toString();
 	}
@@ -150,9 +146,8 @@ public class MetricsOpReporter implements OpReporter {
 		appendField(sb, "totalAttempts", String.valueOf(totalAttempts), false);
 		appendField(sb, "code", failure.id().toString(), false);
 		appendField(sb, "operation", failure.operation(), false);
-		if (failure.correlationId() != null) {
-			appendField(sb, "correlationId", failure.correlationId(), false);
-		}
+		failure.correlationId().ifPresent(cid ->
+			appendField(sb, "correlationId", cid, false));
 		sb.append("}");
 		return sb.toString();
 	}

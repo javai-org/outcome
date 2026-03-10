@@ -1,16 +1,15 @@
 package org.javai.outcome.examples;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.javai.outcome.Failure;
 import org.javai.outcome.FailureId;
 import org.javai.outcome.ops.metrics.MetricsOpReporter;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Generates example MetricsOpReporter output for documentation.
@@ -45,7 +44,7 @@ public class MetricsOutputExample {
 
 		// Attempt 2 fails (update timestamp)
 		Failure failure2 = failure.withContext(
-				failure.correlationId(),
+				failure.correlationId().orElse(null),
 				failure.tags()
 		);
 		reporter.report(failure2);

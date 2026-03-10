@@ -52,6 +52,10 @@ public class BoundaryFailureClassifier implements FailureClassifier {
             );
         }
 
+        if (t instanceof HttpStatusException httpStatus) {
+            return classifyHttpStatus(operation, httpStatus);
+        }
+
         if (t instanceof ConnectException) {
             return Failure.transientFailure(
                     FailureId.of("network", "connection_refused"),
@@ -124,6 +128,39 @@ public class BoundaryFailureClassifier implements FailureClassifier {
 
         // Fallback for unknown checked exceptions
         return classifyUnknownException(operation, t);
+    }
+
+    private static Failure classifyHttpStatus(String operation, HttpStatusException httpStatus) {
+        int status = httpStatus.statusCode();
+        String message = messageFor("HTTP " + status, httpStatus);
+
+        if (status == 429) {
+            return Failure.transientFailure(
+                    FailureId.of("http", "rate_limited"),
+                    message,
+                    operation,
+                    httpStatus,
+                    httpStatus.retryAfter()
+            );
+        }
+
+        if (status >= 500) {
+            return Failure.transientFailure(
+                    FailureId.of("http", "server_error"),
+                    message,
+                    operation,
+                    httpStatus,
+                    httpStatus.retryAfter()
+            );
+        }
+
+        // 4xx (except 429) are permanent — client errors that won't resolve on retry
+        return Failure.permanentFailure(
+                FailureId.of("http", "client_error"),
+                message,
+                operation,
+                httpStatus
+        );
     }
 
     private static Failure classifySqlException(String operation, SQLException sqlEx) {

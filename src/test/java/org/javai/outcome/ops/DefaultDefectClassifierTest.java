@@ -92,8 +92,8 @@ class DefaultDefectClassifierTest {
         Exception ex = new NullPointerException("test");
         Failure failure = classifier.classify("Op", ex);
 
-        assertThat(failure.exception()).isNotNull();
-        assertThat(failure.exception()).isEqualTo(ex);
-        assertThat(failure.exception().getMessage()).isEqualTo("test");
+        assertThat(failure.exception()).isPresent();
+        assertThat(failure.exception()).contains(ex);
+        assertThat(failure.exception().get().getMessage()).isEqualTo("test");
     }
 }

@@ -1,9 +1,6 @@
 package org.javai.outcome.boundary;
 
-import org.javai.outcome.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
@@ -11,8 +8,12 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.sql.SQLTransientConnectionException;
-
-import static org.assertj.core.api.Assertions.*;
+import java.time.Duration;
+import org.javai.outcome.Failure;
+import org.javai.outcome.FailureId;
+import org.javai.outcome.FailureType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class BoundaryFailureClassifierTest {
 
@@ -99,13 +100,100 @@ class BoundaryFailureClassifierTest {
         assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
     }
 
+    // === HTTP status classification ===
+
+    @Test
+    void httpStatus429_isTransientWithRateLimitedId() {
+        HttpStatusException ex = new HttpStatusException(429, "HTTP 429", Duration.ofSeconds(30));
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "rate_limited"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+        assertThat(failure.retryAfter()).contains(Duration.ofSeconds(30));
+        assertThat(failure.exception()).contains(ex);
+    }
+
+    @Test
+    void httpStatus429_withoutRetryAfter_isTransientWithNullHint() {
+        HttpStatusException ex = new HttpStatusException(429, "HTTP 429");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "rate_limited"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+        assertThat(failure.retryAfter()).isEmpty();
+    }
+
+    @Test
+    void httpStatus500_isTransientServerError() {
+        HttpStatusException ex = new HttpStatusException(500, "HTTP 500");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "server_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+    }
+
+    @Test
+    void httpStatus503_isTransientWithRetryAfter() {
+        HttpStatusException ex = new HttpStatusException(503, "HTTP 503", Duration.ofSeconds(60));
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "server_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+        assertThat(failure.retryAfter()).contains(Duration.ofSeconds(60));
+    }
+
+    @Test
+    void httpStatus502_isTransientServerError() {
+        HttpStatusException ex = new HttpStatusException(502, "HTTP 502");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "server_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.TRANSIENT);
+    }
+
+    @Test
+    void httpStatus400_isPermanentClientError() {
+        HttpStatusException ex = new HttpStatusException(400, "HTTP 400");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "client_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
+        assertThat(failure.retryAfter()).isEmpty();
+    }
+
+    @Test
+    void httpStatus404_isPermanentClientError() {
+        HttpStatusException ex = new HttpStatusException(404, "HTTP 404");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "client_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
+    }
+
+    @Test
+    void httpStatus401_isPermanentClientError() {
+        HttpStatusException ex = new HttpStatusException(401, "HTTP 401");
+        Failure failure = classifier.classify("Api.fetch", ex);
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("http", "client_error"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
+    }
+
+    @Test
+    void httpStatus_operationIsPreserved() {
+        HttpStatusException ex = new HttpStatusException(503, "HTTP 503");
+        Failure failure = classifier.classify("OrderService.placeOrder", ex);
+
+        assertThat(failure.operation()).isEqualTo("OrderService.placeOrder");
+    }
+
     @Test
     void exception_isPopulated() {
         Exception ex = new SocketTimeoutException("timeout");
         Failure failure = classifier.classify("Op", ex);
 
-        assertThat(failure.exception()).isNotNull();
-        assertThat(failure.exception()).isEqualTo(ex);
-        assertThat(failure.exception().getMessage()).isEqualTo("timeout");
+        assertThat(failure.exception()).isPresent();
+        assertThat(failure.exception()).contains(ex);
+        assertThat(failure.exception().get().getMessage()).isEqualTo("timeout");
     }
 }

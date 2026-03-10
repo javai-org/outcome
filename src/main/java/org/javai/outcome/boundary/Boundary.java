@@ -133,7 +133,7 @@ public final class Boundary {
 
         // Enrich with context if needed
         if (correlationId != null || !tags.isEmpty()) {
-            failure = failure.withContext(correlationId, tags);
+            failure = failure.withContext(correlationId, tags);  // withContext handles null → Optional
         }
 
         reporter.report(failure);

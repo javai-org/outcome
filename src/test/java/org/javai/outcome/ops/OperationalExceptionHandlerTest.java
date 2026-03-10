@@ -80,7 +80,7 @@ class OperationalExceptionHandlerTest {
         handlerWithCorrelation.uncaughtException(Thread.currentThread(), new RuntimeException());
 
         Failure failure = reportedFailures.getFirst();
-        assertThat(failure.correlationId()).isEqualTo("correlation-xyz");
+        assertThat(failure.correlationId()).contains("correlation-xyz");
     }
 
     @Test
