@@ -92,6 +92,18 @@ class BoundaryFailureClassifierTest {
     }
 
     @Test
+    void interruptedException_isPermanentAndRestoresInterruptFlag() {
+        Failure failure = classifier.classify("BlockingOp", new InterruptedException("interrupted"));
+
+        assertThat(failure.id()).isEqualTo(FailureId.of("concurrency", "interrupted"));
+        assertThat(failure.type()).isEqualTo(FailureType.PERMANENT);
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+
+        // Clear the interrupt flag so it doesn't leak to other tests
+        Thread.interrupted();
+    }
+
+    @Test
     void unknownCheckedException_isPermanent() {
         Exception customChecked = new Exception("unknown checked");
         Failure failure = classifier.classify("Unknown", customChecked);

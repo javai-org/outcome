@@ -74,6 +74,16 @@ public class BoundaryFailureClassifier implements FailureClassifier {
             );
         }
 
+        if (t instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+            return Failure.permanentFailure(
+                    FailureId.of("concurrency", "interrupted"),
+                    messageFor("Thread interrupted", t),
+                    operation,
+                    t
+            );
+        }
+
         if (t instanceof TimeoutException) {
             return Failure.transientFailure(
                     FailureId.of("operation", "timeout"),
