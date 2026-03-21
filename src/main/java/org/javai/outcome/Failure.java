@@ -46,6 +46,24 @@ public record Failure(
         trackingId = trackingId == null ? operation : trackingId;
     }
 
+    /**
+     * Returns the exception if it is an instance of the specified type, otherwise empty.
+     * Useful for guarded pattern matching in switch expressions:
+     * <pre>{@code
+     * case Fail(var failure, var _) when failure.exception(IOException.class).isPresent() ->
+     *     handleIO(failure.exception(IOException.class).get());
+     * }</pre>
+     *
+     * @param exceptionType the exception class to match against
+     * @param <E> the exception type
+     * @return an Optional containing the typed exception, or empty if absent or not the specified type
+     */
+    public <E extends Throwable> Optional<E> exception(Class<E> exceptionType) {
+        return exception
+                .filter(exceptionType::isInstance)
+                .map(exceptionType::cast);
+    }
+
     // === Factory methods for common failure types ===
 
     /**

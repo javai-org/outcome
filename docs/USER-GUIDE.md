@@ -183,6 +183,31 @@ Failure failure = Failure.builder(
 | `PERMANENT` | Persistent condition, retry won't help    | No     |
 | `DEFECT`    | Bug in code or configuration              | No     |
 
+**Typed exception access:**
+
+The `exception(Class)` method returns a typed `Optional` if the underlying exception matches the given type. This is particularly useful for guarded pattern matching in switch expressions, eliminating the need for verbose `isPresent()` and `instanceof` checks:
+
+```java
+return switch (outcome) {
+    case Outcome.Ok(var response, var _) ->
+        process(response);
+
+    case Outcome.Fail(var failure, var _) when failure.exception(SocketTimeoutException.class).isPresent() ->
+        retryWithBackoff(failure);
+
+    case Outcome.Fail(var failure, var _) when failure.exception(IOException.class).isPresent() ->
+        handleIOFailure(failure.exception(IOException.class).get(), failure);
+
+    case Outcome.Fail(var failure, var _) when failure.type() == FailureType.TRANSIENT ->
+        scheduleRetry(failure);
+
+    case Outcome.Fail(var failure, var _) ->
+        escalate(failure);
+};
+```
+
+The method matches subclasses, so `failure.exception(IOException.class)` will match a `SocketTimeoutException`. Order your cases from most specific to least specific, just as you would with `catch` blocks.
+
 **Factory methods:**
 
 ```java
