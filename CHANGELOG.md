@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-11
+
+### Added
+- **`module-info.java`** — the library now ships a real JPMS module
+  descriptor. The module name is `org.javai.outcome`; every public
+  package is exported (`org.javai.outcome`, `.boundary`, `.ops`,
+  `.ops.log4j`, `.ops.metrics`, `.ops.slack`, `.ops.teams`,
+  `.retry`). Requires `java.net.http`, `java.sql`, and
+  `static org.slf4j`. Modular consumers can now depend on the
+  published artifact directly via `requires org.javai.outcome`
+  without the `extra-java-module-info` shim previously needed.
+
+### Consumer impact
+- **Classpath consumers** — no change. The descriptor is invisible
+  to non-modular builds.
+- **Modular consumers** — add `requires org.javai.outcome` to their
+  own `module-info.java`. Sibling projects that previously wrapped
+  outcome as an automatic module (notably `punit-core`'s
+  `extraJavaModuleInfo { automaticModule("org.javai:outcome",
+  "outcome") }` block) can drop the shim once they upgrade to
+  0.3.0; the module is now named `org.javai.outcome`.
+
 ## [0.2.0] - 2026-03-10
 
 ### Changed
@@ -32,6 +54,7 @@ natural language inputs.
 - `DefectClassifier` for mapping exceptions to failure types
 - Static convenience methods for low-ceremony usage
 
-[Unreleased]: https://github.com/javai-org/outcome/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/javai-org/outcome/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/javai-org/outcome/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/javai-org/outcome/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/javai-org/outcome/releases/tag/v0.1.0
